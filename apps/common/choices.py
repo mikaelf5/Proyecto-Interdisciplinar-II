@@ -32,24 +32,6 @@ class MomentoRegistro(models.TextChoices):
     ENTREGA = "ENTREGA", "Entrega"
     DEVOLUCION = "DEVOLUCION", "Devolución"
 
-    class TipoUsuario(models.TextChoices):
-    ALUMNO = "ALUMNO", "Alumno"
-    DOCENTE = "DOCENTE", "Docente"
-    ADMINISTRATIVO = "ADMINISTRATIVO", "Administrativo"
-
-
-class RolSistema(models.TextChoices):
-    ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
-    ENCARGADO = "ENCARGADO", "Encargado"
-    SUPERVISOR = "SUPERVISOR", "Supervisor"
-    SOLICITANTE = "SOLICITANTE", "Solicitante"
-
-
-class EtiquetaEstado(models.TextChoices):
-    NUEVO = "NUEVO", "Nuevo"
-    FRECUENTE = "FRECUENTE", "Frecuente"
-    SANCIONADO = "SANCIONADO", "Sancionado"
-    BANEADO = "BANEADO", "Baneado"
 
 class TipoUsuario(models.TextChoices):
     ALUMNO = "ALUMNO", "Alumno"
