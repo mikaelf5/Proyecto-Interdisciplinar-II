@@ -21,8 +21,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Apps del proyecto
     "apps.common",
+    "apps.identidad",
     "apps.catalogo",
     "apps.reservas",
     "apps.perdidas",
@@ -81,3 +83,5 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "identidad.Cuenta"
+
