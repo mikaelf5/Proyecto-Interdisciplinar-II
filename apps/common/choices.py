@@ -51,3 +51,23 @@ class EtiquetaEstado(models.TextChoices):
     FRECUENTE = "FRECUENTE", "Frecuente"
     SANCIONADO = "SANCIONADO", "Sancionado"
     BANEADO = "BANEADO", "Baneado"
+
+class EstadoSolicitud(models.TextChoices):
+    PENDIENTE = "PENDIENTE", "Pendiente"
+    EN_ESPERA_SUPERVISOR = "EN_ESPERA_SUPERVISOR", "En espera de supervisor"
+    APROBADA = "APROBADA", "Aprobada"
+    RECHAZADA = "RECHAZADA", "Rechazada"
+    CANCELADA = "CANCELADA", "Cancelada"
+
+
+class EstadoPrestamo(models.TextChoices):
+    ACTIVO = "ACTIVO", "Activo"
+    VENCIDO = "VENCIDO", "Vencido"
+    DEVUELTO = "DEVUELTO", "Devuelto"
+    CERRADO_POR_PERDIDA = "CERRADO_POR_PERDIDA", "Cerrado por pérdida"
+
+
+class TipoGarantia(models.TextChoices):
+    DNI = "DNI", "DNI"
+    CARNE_UNIVERSITARIO = "CARNE_UNIVERSITARIO", "Carné universitario"
+    OTRO = "OTRO", "Otro"
