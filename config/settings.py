@@ -30,10 +30,6 @@ INSTALLED_APPS = [
     "apps.sanciones",
     "apps.auditoria",
     "apps.notificaciones",
-    "apps.sanciones",
-    "apps.perdidas",
-    "apps.reportes",
-    "apps.auditoria",
 ]
 
 MIDDLEWARE = [
