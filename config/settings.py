@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "apps.sanciones",
     "apps.auditoria",
     "apps.notificaciones",
+    "apps.politicas",
+    "apps.circulacion",
 ]
 
 MIDDLEWARE = [
