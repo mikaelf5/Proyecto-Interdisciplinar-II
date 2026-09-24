@@ -26,6 +26,10 @@ INSTALLED_APPS = [
     "apps.catalogo",
     "apps.reservas",
     "apps.notificaciones",
+    "apps.sanciones",
+    "apps.perdidas",
+    "apps.reportes",
+    "apps.auditoria",
 ]
 
 MIDDLEWARE = [
