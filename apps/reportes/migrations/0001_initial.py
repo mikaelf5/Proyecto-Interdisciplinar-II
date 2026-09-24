@@ -16,8 +16,8 @@ class Migration(migrations.Migration):
             name='Reporte',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('creado_en', models.DateTimeField(auto_now_add=True)),
+                ('actualizado_en', models.DateTimeField(auto_now=True)),
                 ('tipo', models.CharField(choices=[('ITEMS_MAS_PRESTADOS', 'Ítems más prestados'), ('USUARIOS_MAS_ACTIVOS', 'Usuarios más activos'), ('TASA_DEVOLUCION_A_TIEMPO', 'Tasa de devolución a tiempo'), ('ITEMS_PERDIDOS_DANIADOS', 'Ítems perdidos o dañados'), ('SANCIONES_POR_PERIODO', 'Sanciones por periodo')], max_length=40)),
                 ('periodo_inicio', models.DateField()),
                 ('periodo_fin', models.DateField()),

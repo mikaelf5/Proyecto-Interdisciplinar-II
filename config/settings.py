@@ -25,6 +25,10 @@ INSTALLED_APPS = [
     "apps.common",
     "apps.catalogo",
     "apps.reservas",
+    "apps.perdidas",
+    "apps.reportes",
+    "apps.sanciones",
+    "apps.auditoria",
     "apps.notificaciones",
 ]
 

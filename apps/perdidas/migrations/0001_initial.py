@@ -16,8 +16,8 @@ class Migration(migrations.Migration):
             name='CasoPerdida',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('creado_en', models.DateTimeField(auto_now_add=True)),
+                ('actualizado_en', models.DateTimeField(auto_now=True)),
                 ('prestamo_id', models.UUIDField(help_text='Préstamo asociado a la pérdida/daño (contexto Circulación).')),
                 ('solicitante_id', models.UUIDField(help_text='Solicitante responsable del ítem perdido/dañado (contexto Identidad).')),
                 ('fecha', models.DateField()),

@@ -16,8 +16,8 @@ class Migration(migrations.Migration):
             name='Sancion',
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('creado_en', models.DateTimeField(auto_now_add=True)),
+                ('actualizado_en', models.DateTimeField(auto_now=True)),
                 ('solicitante_id', models.UUIDField(help_text='Referencia al PerfilSolicitante/Cuenta sancionado (contexto Identidad).')),
                 ('aplicada_por_id', models.UUIDField(help_text='Referencia al Personal/Encargado que aplicó la sanción (contexto Identidad).')),
                 ('prestamo_id', models.UUIDField(blank=True, help_text='Préstamo que originó la sanción, si aplica (contexto Circulación).', null=True)),
