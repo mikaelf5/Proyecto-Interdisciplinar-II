@@ -21,15 +21,19 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     # Apps del proyecto
     "apps.common",
+    "apps.identidad",
     "apps.catalogo",
     "apps.reservas",
-    "apps.notificaciones",
-    "apps.sanciones",
     "apps.perdidas",
     "apps.reportes",
+    "apps.sanciones",
     "apps.auditoria",
+    "apps.notificaciones",
+    "apps.politicas",
+    "apps.circulacion",
 ]
 
 MIDDLEWARE = [
@@ -82,3 +86,5 @@ USE_TZ = True
 LOGIN_URL = "/admin/login/"
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "identidad.Cuenta"
+

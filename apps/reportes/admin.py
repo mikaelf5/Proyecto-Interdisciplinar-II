@@ -10,4 +10,3 @@ class ReporteAdmin(admin.ModelAdmin):
     search_fields = ("generado_por_id",)
     readonly_fields = ("id", "creado_en", "actualizado_en")
     date_hierarchy = "creado_en"
-
