@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Notificaciones{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Notificaciones</h1>
+        <p class="text-muted mb-0">También te llegan por correo.</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if solo_no_leidas %}
+        <a class="btn btn-outline-secondary" href="{% url 'notificaciones_web:bandeja' %}">Ver todas</a>
+        {% else %}
+        <a class="btn btn-outline-secondary" href="?filtro=no_leidas">Solo sin leer</a>
+        {% endif %}
+        {% if notificaciones_no_leidas %}
+        <form method="post" action="{% url 'notificaciones_web:marcar_todas' %}">{% csrf_token %}
+            <button class="btn btn-primary" type="submit">Marcar todas como leídas</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="list-group list-group-flush">
+        {% for n in notificaciones %}
+        <div class="list-group-item noti d-flex gap-3 py-3{% if not n.leida %} no-leida{% endif %}">
+            <span class="noti-punto" aria-hidden="true"></span>
+            <div class="flex-grow-1">
+                <div class="noti-asunto">{% if not n.leida %}<span class="visually-hidden">Sin leer: </span>{% endif %}{{ n.asunto }}</div>
+                <div class="text-muted">{{ n.mensaje }}</div>
+                {% if not n.fecha_envio %}<div class="small text-danger mt-1">No se pudo enviar el correo; el aviso queda aquí.</div>{% endif %}
+            </div>
+            <div class="text-end text-nowrap">
+                <div class="small text-muted">{{ n.fecha_creacion|date:"j M, H:i" }}</div>
+                {% if not n.leida %}
+                <form method="post" action="{% url 'notificaciones_web:marcar_leida' n.id %}">{% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-link px-0">Marcar como leída</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="list-group-item text-center text-muted py-4">
+            {% if solo_no_leidas %}No tienes notificaciones sin leer.{% else %}Aún no tienes notificaciones.{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

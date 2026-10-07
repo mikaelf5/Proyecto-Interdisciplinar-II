@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">{{ titulo }}</h1>
+
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "catalogo/_campos.html" %}
+        <button type="submit" class="btn btn-primary">Crear categoría</button>
+        <a href="{% url 'catalogo_web:categorias' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

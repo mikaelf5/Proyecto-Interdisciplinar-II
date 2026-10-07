@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load utilidades %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<nav aria-label="Ruta">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'catalogo_web:buscar' %}">Catálogo</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'catalogo_web:buscar' %}?categoria={{ item.categoria_id }}">{{ categoria.nombre }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+    </ol>
+</nav>
+
+<div class="card p-4 mb-4">
+    <div class="row g-4 align-items-center">
+        <div class="col-md-5">
+            <div class="imagen-item grande" aria-hidden="true">{{ categoria.nombre|first|upper }}</div>
+        </div>
+        <div class="col-md-7">
+            <div class="small text-muted mb-1">Código: <code>{{ item.codigo }}</code></div>
+            <h1 class="h3">{{ titulo }}</h1>
+            <div class="mb-3">
+                <span class="badge {{ item.estado|estado_badge }}">{{ item.estado|estado_texto }}</span>
+                {% if item.categoria_especial %}<span class="badge bg-warning text-dark ms-1">Requiere supervisor</span>{% endif %}
+            </div>
+            {% if item.motivo_fuera_servicio %}<p class="text-warning-emphasis">Motivo: {{ item.motivo_fuera_servicio }}</p>{% endif %}
+
+            <dl class="row atributos mb-3">
+                {% for nombre, valor in atributos %}<dt class="col-5">{{ nombre }}</dt><dd class="col-7">{{ valor }}</dd>{% endfor %}
+                <dt class="col-5">Personas esperando</dt><dd class="col-7">{{ en_espera }}</dd>
+            </dl>
+
+            {% if es_solicitante and item.estado != "BAJA" %}
+                {% if mi_espera %}
+                    {% if mi_espera.estado == "AVISADO" %}
+                    <div class="alert alert-success">Ya te lo apartamos. Confírmalo en <a href="{% url 'reservas_web:mias' %}" class="alert-link">Mis reservas</a> antes de que venza el plazo.</div>
+                    {% else %}
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <span class="turno-numero text-primary">{{ mi_espera.posicion }}.º</span>
+                        <span class="text-muted">Estás en la lista de espera.<br>Te avisaremos por correo cuando se libere.</span>
+                    </div>
+                    {% endif %}
+                {% elif item.estado == "DISPONIBLE" %}
+                    <p>Está disponible. Para usarlo hoy, solicita el préstamo; si lo necesitas más adelante, resérvalo.</p>
+                {% elif item.estado == "MANTENIMIENTO" %}
+                    <p>Está en mantenimiento. Entra a la lista de espera y te avisaremos cuando vuelva.</p>
+                {% else %}
+                    <p>Ahora no está disponible. Cuando lo devuelvan, se aparta para el primero de la lista de espera.</p>
+                {% endif %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% if item.estado != "MANTENIMIENTO" %}
+                    <a class="btn {% if item.estado == 'DISPONIBLE' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% url 'reservas_web:reservar' item.id %}">Reservar fechas</a>
+                    {% endif %}
+                    {% if not mi_espera and item.estado != "DISPONIBLE" %}
+                    <form method="post" action="{% url 'reservas_web:inscribir_espera' item.id %}">{% csrf_token %}
+                        <input type="hidden" name="siguiente" value="{{ request.path }}">
+                        <button class="btn btn-primary" type="submit">Entrar a la lista de espera</button>
+                    </form>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if es_personal %}
+            <a class="btn btn-outline-secondary mt-2" href="{% url 'reservas_web:lista_espera' item.id %}">Ver la lista de espera ({{ en_espera }})</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if es_personal %}
+<h2 class="h5 mb-3">Condición física</h2>
+<div class="card mb-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Fecha</th><th>Momento</th><th>Descripción</th><th>Foto</th></tr></thead>
+            <tbody>
+                {% for c in historial %}
+                <tr>
+                    <td>{{ c.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{% if c.momento == "ENTREGA" %}Entrega{% else %}Devolución{% endif %}</td>
+                    <td>{{ c.descripcion|default:"—" }}</td>
+                    <td>{% if c.foto %}<a href="{{ c.foto }}">Ver foto</a>{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">Todavía no se ha prestado.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if relacionados %}
+<h2 class="h5 mb-3">Más de {{ categoria.nombre }}</h2>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3">
+    {% for f in relacionados %}{% include "catalogo/_tarjeta.html" %}{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

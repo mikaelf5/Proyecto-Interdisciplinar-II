@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Catálogo{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <h1 class="h3 mb-0">Catálogo</h1>
+    <p class="text-muted mb-0">Libros, equipos e indumentaria para tus clases y laboratorios.</p>
+</div>
+
+<div class="card p-3 mb-4">
+    <form method="get" class="row g-2" role="search">
+        <div class="col-12 col-lg-5">
+            <label class="visually-hidden" for="q">Buscar</label>
+            <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="Título, autor, marca o código">
+        </div>
+        <div class="col-6 col-lg-3">
+            <label class="visually-hidden" for="categoria">Categoría</label>
+            <select class="form-select" id="categoria" name="categoria">
+                <option value="">Todas las categorías</option>
+                {% for c in categorias %}<option value="{{ c.id }}" {% if c.id|stringformat:"s" == categoria %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-lg-2">
+            <label class="visually-hidden" for="estado">Estado</label>
+            <select class="form-select" id="estado" name="estado">
+                <option value="">Cualquier estado</option>
+                {% for valor, texto in estados %}<option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-lg-2 d-grid"><button class="btn btn-primary" type="submit">Buscar</button></div>
+    </form>
+</div>
+
+{% if filas %}
+<p class="text-muted small">{{ filas|length }} ítem{{ filas|length|pluralize }}{% if q %} para «{{ q }}»{% endif %}</p>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-3">
+    {% for f in filas %}{% include "catalogo/_tarjeta.html" %}{% endfor %}
+</div>
+{% else %}
+<div class="card p-5 text-center">
+    <p class="lead mb-3">No hay ítems con esos filtros.</p>
+    <div><a class="btn btn-outline-secondary" href="{% url 'catalogo_web:buscar' %}">Ver todo el catálogo</a></div>
+</div>
+{% endif %}
+{% endblock %}

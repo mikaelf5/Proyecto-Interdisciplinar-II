@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Categorías{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Categorías</h1>
+        <p class="text-muted mb-0">Cada categoría define qué datos se piden al registrar sus ítems.</p>
+    </div>
+    <a href="{% url 'catalogo_web:crear_categoria' %}" class="btn btn-primary">+ Nueva categoría</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Atributos</th>
+                    <th>Stock mínimo</th>
+                    <th>Especial</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in categorias %}
+                <tr>
+                    <td class="fw-semibold">{{ c.nombre }}</td>
+                    <td>{% for nombre in c.definicion_atributos %}<span class="badge bg-light text-dark border me-1">{{ nombre }}</span>{% empty %}<span class="text-muted">Ninguno</span>{% endfor %}</td>
+                    <td>{{ c.stock_minimo }}</td>
+                    <td>{% if c.es_especial %}<span class="badge bg-warning text-dark">Sí</span>{% else %}No{% endif %}</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'catalogo_web:registrar_item' c.id %}">Registrar ítem</a>
+                        <form class="d-inline" method="post" action="{% url 'catalogo_web:baja_categoria' c.id %}"
+                              onsubmit="return confirm('¿Dar de baja la categoría {{ c.nombre }}?');">{% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Dar de baja</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">Aún no hay categorías.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

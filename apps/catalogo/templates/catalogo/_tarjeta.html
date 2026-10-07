@@ -1,0 +1,16 @@
+{% load utilidades %}
+<div class="col">
+    <div class="card h-100 card-producto position-relative">
+        <span class="badge {{ f.item.estado|estado_badge }} badge-esquina">{{ f.item.estado|estado_texto }}</span>
+        <div class="imagen-item card-img-top" aria-hidden="true">{{ f.categoria.nombre|first|upper }}</div>
+        <div class="card-body text-center">
+            <h5 class="h6 fw-bold">{{ f.titulo }}</h5>
+            <div class="text-muted small">{{ f.subtitulo|default:f.categoria.nombre }}</div>
+            <div class="small text-secondary mt-1"><code>{{ f.item.codigo }}</code></div>
+            {% if f.item.categoria_especial %}<span class="badge bg-warning text-dark mt-2">Requiere supervisor</span>{% endif %}
+        </div>
+        <div class="card-footer bg-transparent border-top-0 text-center pb-3">
+            <a class="btn btn-sm btn-outline-secondary stretched-link" href="{% url 'catalogo_web:detalle' f.item.id %}">Ver detalle</a>
+        </div>
+    </div>
+</div>

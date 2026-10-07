@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load utilidades %}
+{% block title %}Lista de espera de {{ titulo }}{% endblock %}
+
+{% block content %}
+<nav aria-label="Ruta">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'catalogo_web:buscar' %}">Catálogo</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'catalogo_web:detalle' item.id %}">{{ titulo }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Lista de espera</li>
+    </ol>
+</nav>
+
+<h1 class="h3 mb-1">Lista de espera</h1>
+<p class="text-muted mb-3">{{ titulo }} (<code>{{ item.codigo }}</code>) <span class="badge {{ item.estado|estado_badge }}">{{ item.estado|estado_texto }}</span></p>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Lugar</th><th>Solicitante</th><th>Esperando desde</th><th>Estado</th></tr></thead>
+            <tbody>
+                {% for e in entradas %}
+                <tr>
+                    <td class="fw-semibold">{% if e.posicion %}{{ e.posicion }}.º{% else %}Avisado{% endif %}</td>
+                    <td>{{ nombres|get_item:e.solicitante_id }}</td>
+                    <td>{{ e.fecha_ingreso|date:"d/m/Y H:i" }}</td>
+                    <td><span class="badge {{ e.estado|estado_badge }}">{{ e.estado|estado_texto }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">Nadie está esperando este ítem.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% if entradas %}<p class="form-text mt-2">Se atiende por orden de llegada. Cuando el ítem se libera, el sistema avisa al primero y se lo aparta con un plazo para confirmar.</p>{% endif %}
+{% endblock %}
