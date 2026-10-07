@@ -20,6 +20,11 @@ class SancionCreateView(LoginRequiredMixin, CreateView):
     template_name = "sanciones/sancion_form.html"
     success_url = reverse_lazy("sanciones:lista")
 
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["aplicada_por_id"] = self.request.user.id
+        return initial
+
     def form_valid(self, form):
         messages.success(self.request, "Sanción registrada correctamente.")
         return super().form_valid(form)

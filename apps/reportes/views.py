@@ -22,7 +22,7 @@ class ReporteCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy("reportes:lista")
 
     def form_valid(self, form):
-        form.instance.generado_por_id = form.instance.generado_por_id or self.request.user.id
+        form.instance.generado_por_id = self.request.user.id
         messages.success(self.request, "Reporte generado correctamente.")
         return super().form_valid(form)
 
@@ -47,12 +47,15 @@ def exportar_reporte(request, pk, formato):
     de fallar con un error sin manejar.
     """
     reporte = get_object_or_404(Reporte, pk=pk)
+    formato = formato.upper()  # la URL trae 'excel'/'pdf'; FormatoExport usa 'EXCEL'/'PDF'
     try:
         reporte.exportar(formato)
+    except ValueError:
+        messages.error(request, f"Formato no soportado: {formato}.")
     except NotImplementedError:
         messages.info(
             request,
-            f"La exportación a {formato.upper()} todavía no está implementada "
+            f"La exportación a {formato} todavía no está implementada "
             "(queda pendiente para la fase de lógica de negocio).",
         )
     return redirect("reportes:lista")
