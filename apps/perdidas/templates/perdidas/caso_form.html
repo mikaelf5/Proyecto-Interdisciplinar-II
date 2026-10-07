@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar caso{% else %}Nuevo caso de pérdida{% endif %}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">{% if object %}Editar caso de pérdida{% else %}Nuevo caso de pérdida{% endif %}</h1>
+
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">ID del préstamo (UUID)</label>
+            {{ form.prestamo_id }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">ID del solicitante (UUID)</label>
+            {{ form.solicitante_id }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Fecha</label>
+            {{ form.fecha }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Observaciones</label>
+            {{ form.observaciones }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Costo estimado (opcional)</label>
+            {{ form.costo_estimado }}
+        </div>
+
+        <div class="form-check mb-3">
+            {{ form.cerrado }}
+            <label class="form-check-label">Caso cerrado</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'perdidas:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar reporte{% else %}Nuevo reporte{% endif %}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">{% if object %}Editar reporte{% else %}Generar reporte{% endif %}</h1>
+
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">Tipo de reporte</label>
+            {{ form.tipo }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Periodo — desde</label>
+            {{ form.periodo_inicio }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Periodo — hasta</label>
+            {{ form.periodo_fin }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">ID de quien genera el reporte (UUID)</label>
+            {{ form.generado_por_id }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'reportes:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Eliminar caso{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Eliminar caso de pérdida</h1>
+<div class="card p-4" style="max-width: 560px;">
+    <p>¿Seguro que quieres eliminar el caso del préstamo <code>{{ object.prestamo_id }}</code>?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+        <a href="{% url 'perdidas:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

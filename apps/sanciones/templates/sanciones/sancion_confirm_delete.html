@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Eliminar sanción{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Eliminar sanción</h1>
+<div class="card p-4" style="max-width: 560px;">
+    <p>¿Seguro que quieres eliminar la sanción de <code>{{ object.solicitante_id }}</code> ({{ object.get_tipo_display }})?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+        <a href="{% url 'sanciones:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

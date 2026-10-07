@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar sanción{% else %}Nueva sanción{% endif %}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">{% if object %}Editar sanción{% else %}Nueva sanción{% endif %}</h1>
+
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">ID del solicitante (UUID)</label>
+            {{ form.solicitante_id }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">ID de quien aplica la sanción (UUID)</label>
+            {{ form.aplicada_por_id }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">ID del préstamo relacionado (opcional)</label>
+            {{ form.prestamo_id }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Tipo de sanción</label>
+            {{ form.tipo }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Motivo</label>
+            {{ form.motivo }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Duración en días (si aplica)</label>
+            {{ form.duracion_dias }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Fecha de inicio</label>
+            {{ form.fecha_inicio }}
+        </div>
+
+        <div class="form-check mb-3">
+            {{ form.activa }}
+            <label class="form-check-label">Sanción activa</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'sanciones:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
