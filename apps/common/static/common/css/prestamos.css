@@ -1,0 +1,38 @@
+/*
+  Estilos de Catálogo, Reservas y Notificaciones (Micaela).
+  Se apoyan en Bootstrap 5.3 y en la plantilla base común (apps/common/templates/base.html).
+  Solo lo que Bootstrap no trae.
+*/
+
+/* Imagen de muestra del ítem (no se guardan fotos de producto): inicial de la categoría */
+.imagen-item { aspect-ratio: 3 / 2; display: flex; align-items: center; justify-content: center;
+  background: #e9ecef; color: #6c757d; font-size: 3rem; font-weight: 700; }
+.imagen-item.grande { font-size: 6rem; border-radius: .375rem; }
+.card .imagen-item { border-top-left-radius: calc(.375rem - 1px); border-top-right-radius: calc(.375rem - 1px); }
+
+/* Etiqueta de estado en la esquina de la tarjeta */
+.badge-esquina { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
+
+/* Tarjeta de ítem */
+.card-producto { transition: box-shadow .15s ease; }
+.card-producto:hover { box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .12) !important; }
+
+/* Lista de atributos del detalle */
+.atributos dt { font-weight: 400; color: #6c757d; }
+.atributos dd { font-weight: 600; }
+
+/* Puesto en la lista de espera */
+.turno-numero { font-size: 2.6rem; font-weight: 800; line-height: 1; }
+
+/* Fechas de una reserva */
+.fechas { min-width: 8rem; }
+.fechas strong { display: block; font-size: 1.5rem; line-height: 1.1; }
+
+/* Notificación no leída */
+.noti-punto { width: .6rem; height: .6rem; border-radius: 50%; flex: none; margin-top: .45rem; }
+.noti.no-leida { background: #f8f9fa; }
+.noti.no-leida .noti-punto { background: var(--bs-primary); }
+.noti.no-leida .noti-asunto { font-weight: 700; }
+
+/* Errores de los formularios generados por Django */
+.errorlist { list-style: none; padding: 0; margin: .25rem 0 0; color: var(--bs-danger); font-size: .875rem; }
