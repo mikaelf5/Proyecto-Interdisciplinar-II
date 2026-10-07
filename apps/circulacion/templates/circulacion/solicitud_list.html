@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>Solicitudes de préstamo</h2>
+
+    <hr>
+    <a href="{% url 'circulacion:solicitud_nueva' %}"
+        class="btn btn-primary mb-3">
+        Nueva solicitud
+    </a>
+
+    {% if solicitudes %}
+
+        <table class="table table-striped">
+
+            <thead>
+                <tr>
+                    <th>Solicitante</th>
+                    <th>Fecha inicio</th>
+                    <th>Fecha fin</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for solicitud in solicitudes %}
+
+                    <tr>
+                        <td>{{ solicitud.solicitante_id }}</td>
+                        <td>{{ solicitud.fecha_inicio }}</td>
+                        <td>{{ solicitud.fecha_fin }}</td>
+                        <td>{{ solicitud.get_estado_display }}</td>
+                        <td>
+                            <a href="{% url 'circulacion:solicitud_detalle' solicitud.id %}"
+                                class="btn btn-sm btn-info">
+                                    Ver
+                            </a>
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="alert alert-info">
+            No existen solicitudes registradas.
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
