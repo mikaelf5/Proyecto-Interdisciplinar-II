@@ -1,17 +1,22 @@
+"""Presentación (panel admin): las acciones pasan por el servicio de aplicación."""
 from django.contrib import admin
 
-from .models import Notificacion
+from .aplicacion.servicios import NotificacionServicioAplicacion
+from .dominio.models import Notificacion
 
 
-@admin.action(description="Marcar como enviadas")
+@admin.action(description="Reintentar envío por correo")
 def marcar_enviadas(modeladmin, request, queryset):
+    servicio = NotificacionServicioAplicacion()
     for n in queryset.filter(fecha_envio__isnull=True):
-        n.marcar_enviada()
+        servicio.reintentar(n.id)
 
 
 @admin.action(description="Marcar como leídas")
 def marcar_leidas(modeladmin, request, queryset):
-    queryset.update(leida=True)
+    servicio = NotificacionServicioAplicacion()
+    for n in queryset:
+        servicio.marcar_leida(n.id)
 
 
 @admin.register(Notificacion)

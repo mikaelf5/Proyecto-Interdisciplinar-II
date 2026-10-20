@@ -1,9 +1,16 @@
+"""
+Presentación (panel admin). Las acciones del admin también pasan por el
+servicio de aplicación, igual que las vistas web.
+"""
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
 from apps.common.choices import EstadoItem
 
-from .models import Categoria, CondicionFisica, Item
+from .aplicacion.servicios import CatalogoServicioAplicacion
+from .dominio.models import Categoria, CondicionFisica, Item
+
+catalogo = CatalogoServicioAplicacion()
 
 
 @admin.register(Categoria)
@@ -22,7 +29,7 @@ def _cambiar(modeladmin, request, queryset, accion, etiqueta):
     ok, errores = 0, 0
     for item in queryset:
         try:
-            accion(item)
+            accion(item.id)
             ok += 1
         except ValidationError:
             errores += 1
@@ -37,19 +44,20 @@ def _cambiar(modeladmin, request, queryset, accion, etiqueta):
 @admin.action(description="Poner como disponible")
 def poner_disponible(modeladmin, request, queryset):
     _cambiar(modeladmin, request, queryset,
-             lambda i: i.cambiar_estado(EstadoItem.DISPONIBLE), "puesto(s) como disponible(s)")
+             lambda pk: catalogo.cambiar_estado_item(pk, EstadoItem.DISPONIBLE), "puesto(s) como disponible(s)")
 
 
 @admin.action(description="Marcar como dañado (a mantenimiento)")
 def marcar_daniado(modeladmin, request, queryset):
     _cambiar(modeladmin, request, queryset,
-             lambda i: i.marcar_daniado("Marcado como dañado desde el admin"), "enviado(s) a mantenimiento")
+             lambda pk: catalogo.marcar_daniado(pk, "Marcado como dañado desde el admin"),
+             "enviado(s) a mantenimiento")
 
 
 @admin.action(description="Dar de baja")
 def dar_de_baja(modeladmin, request, queryset):
     _cambiar(modeladmin, request, queryset,
-             lambda i: i.dar_de_baja("Dado de baja desde el admin"), "dado(s) de baja")
+             lambda pk: catalogo.dar_de_baja_item(pk, "Dado de baja desde el admin"), "dado(s) de baja")
 
 
 @admin.register(Item)
