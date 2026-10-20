@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Cola de {{ item.codigo }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'catalogo:detalle' item.id %}" class="btn btn-link px-0 mb-2">← Volver al ítem</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Lista de espera · {{ item.nombre }} <small class="text-muted">({{ item.codigo }})</small></h1>
+    {% if user.is_staff and cola %}
+    <form method="post" action="{% url 'reservas:asignar_siguiente' item.id %}">{% csrf_token %}
+        <button class="btn btn-success">Liberar ítem → avisar al siguiente</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card">
+    <table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th>Posición</th><th>Solicitante</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+            {% for r in cola %}
+            <tr>
+                <td class="fw-bold">#{{ r.posicion_en_cola }}</td>
+                <td><code>{{ r.solicitante_id }}</code>{% if r.solicitante_id == user.id %} <span class="badge bg-info">Tú</span>{% endif %}</td>
+                <td>{{ r.estado_display }}</td>
+                <td class="text-end">
+                    {% if user.is_staff %}
+                    <form method="post" action="{% url 'reservas:confirmar' r.id %}" class="d-inline">{% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-sm btn-outline-success">Confirmar</button>
+                    </form>
+                    {% endif %}
+                    {% if user.is_staff or r.solicitante_id == user.id %}
+                    <form method="post" action="{% url 'reservas:cancelar' r.id %}" class="d-inline">{% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.path }}">
+                        <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Nadie en la cola.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
