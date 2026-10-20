@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>Detalle de solicitud</h2>
+
+    <hr>
+
+    <table class="table table-bordered">
+
+        <tbody>
+            <tr>
+                <th>ID</th>
+                <td>{{ solicitud.id }}</td>
+            </tr>
+
+            <tr>
+                <th>Solicitante</th>
+                <td>{{ solicitud.solicitante_id }}</td>
+            </tr>
+
+            <tr>
+                <th>Ítem</th>
+                <td>{{ solicitud.item_id|default:"-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Categoría</th>
+                <td>{{ solicitud.categoria_id|default:"-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Fecha de inicio</th>
+                <td>{{ solicitud.fecha_inicio }}</td>
+            </tr>
+
+            <tr>
+                <th>Fecha de fin</th>
+                <td>{{ solicitud.fecha_fin }}</td>
+            </tr>
+
+            <tr>
+                <th>Finalidad</th>
+                <td>{{ solicitud.finalidad|default:"-" }}</td>
+            </tr>
+
+            <tr>
+                <th>Estado</th>
+                <td>{{ solicitud.get_estado_display }}</td>
+            </tr>
+
+            <tr>
+                <th>Motivo de rechazo</th>
+                <td>{{ solicitud.motivo_rechazo|default:"-" }}</td>
+            </tr>
+        </tbody>
+
+    </table>
+
+    <a href="{% url 'circulacion:solicitudes' %}"
+       class="btn btn-secondary">
+        Volver
+    </a>
+
+</div>
+
+{% endblock %}
