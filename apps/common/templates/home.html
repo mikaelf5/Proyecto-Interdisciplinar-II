@@ -3,29 +3,74 @@
 
 {% block content %}
 <h1 class="h3 mb-4">Sistema de Préstamos</h1>
-<div class="row g-3">
-    <div class="col-md-6">
+
+<h2 class="h5 mb-3">Interfaz del sistema</h2>
+<div class="row g-3 mb-5">
+    <div class="col-md-6 col-lg-3">
         <a href="{% url 'sanciones:lista' %}" class="card p-4 text-decoration-none text-dark h-100">
-            <h2 class="h5">Sanciones</h2>
-            <p class="mb-0 text-muted">Observaciones, suspensiones y baneos a solicitantes.</p>
+            <h3 class="h6">Sanciones</h3>
+            <p class="mb-0 text-muted small">Observaciones, suspensiones y baneos a solicitantes.</p>
         </a>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-6 col-lg-3">
         <a href="{% url 'perdidas:lista' %}" class="card p-4 text-decoration-none text-dark h-100">
-            <h2 class="h5">Pérdidas</h2>
-            <p class="mb-0 text-muted">Ítems perdidos o robados durante un préstamo.</p>
+            <h3 class="h6">Pérdidas</h3>
+            <p class="mb-0 text-muted small">Ítems perdidos o robados durante un préstamo.</p>
         </a>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-6 col-lg-3">
         <a href="{% url 'reportes:lista' %}" class="card p-4 text-decoration-none text-dark h-100">
-            <h2 class="h5">Reportes</h2>
-            <p class="mb-0 text-muted">Estadísticas por periodo, exportables a Excel y PDF.</p>
+            <h3 class="h6">Reportes</h3>
+            <p class="mb-0 text-muted small">Estadísticas por periodo, exportables a Excel y PDF.</p>
         </a>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-6 col-lg-3">
         <a href="{% url 'auditoria:lista' %}" class="card p-4 text-decoration-none text-dark h-100">
-            <h2 class="h5">Auditoría</h2>
-            <p class="mb-0 text-muted">Bitácora de quién hizo qué y cuándo.</p>
+            <h3 class="h6">Auditoría</h3>
+            <p class="mb-0 text-muted small">Bitácora de quién hizo qué y cuándo.</p>
+        </a>
+    </div>
+
+</div>
+
+<h2 class="h5 mb-1">Otros módulos del equipo</h2>
+<p class="text-muted small mb-3">Por ahora se gestionan desde el panel de administración.</p>
+<div class="row g-3">
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='identidad' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Identidad y acceso</h3>
+            <p class="mb-0 text-muted small">Cuentas, roles y perfil del solicitante.</p>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='catalogo' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Catálogo e inventario</h3>
+            <p class="mb-0 text-muted small">Categorías, ítems y condición física.</p>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='politicas' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Políticas</h3>
+            <p class="mb-0 text-muted small">Duración, renovaciones y límites de préstamo.</p>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='circulacion' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Préstamos y circulación</h3>
+            <p class="mb-0 text-muted small">Solicitudes, entregas y devoluciones.</p>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='reservas' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Reservas</h3>
+
+            <p class="mb-0 text-muted small">Reservas anticipadas y lista de espera.</p>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{% url 'admin:app_list' app_label='notificaciones' %}" class="card p-4 text-decoration-none text-dark h-100">
+            <h3 class="h6">Notificaciones</h3>
+            <p class="mb-0 text-muted small">Avisos por correo a los usuarios.</p>
         </a>
     </div>
 </div>
