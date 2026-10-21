@@ -419,3 +419,105 @@ class ServicioDeAprobacionTests(TestCase):
         )
 
         solicitud.save.assert_called_once()
+
+class RepositoriosCapasTest(TestCase):
+    def test_solicitudes_pendientes_y_buscar_por_id(self):
+        from apps.circulacion.infraestructura.repositorio_django import SolicitudRepositorioImpl
+        repo = SolicitudRepositorioImpl()
+        solicitud = Solicitud.objects.create(
+            item_id=uuid.uuid4(), solicitante_id=uuid.uuid4(),
+            fecha_inicio=date.today(), fecha_fin=date.today() + timedelta(days=1))
+        self.assertEqual(repo.buscar_por_id(solicitud.id).id, solicitud.id)
+        self.assertIn(solicitud, list(repo.pendientes()))
+
+    def test_vigentes_y_vencidos(self):
+        from apps.circulacion.infraestructura.repositorio_django import PrestamoRepositorioImpl
+        repo = PrestamoRepositorioImpl()
+        ahora = timezone.now()
+        p = Prestamo.objects.create(
+            item_id=uuid.uuid4(), solicitante_id=uuid.uuid4(), solicitud_id=uuid.uuid4(),
+            encargado_entrega_id=uuid.uuid4(), garantia_tipo=TipoGarantia.DNI,
+            fecha_entrega=ahora-timedelta(days=2), fecha_vencimiento=ahora-timedelta(days=1))
+        self.assertEqual(repo.buscar_por_id(p.id).id, p.id)
+        self.assertIn(p, list(repo.vigentes_de(p.solicitante_id)))
+        self.assertIn(p, list(repo.vencidos()))
+
+class DominioExtendidoTest(TestCase):
+    def crear_prestamo(self):
+        ahora = timezone.now()
+        return Prestamo.objects.create(
+            item_id=uuid.uuid4(), solicitante_id=uuid.uuid4(), solicitud_id=uuid.uuid4(),
+            encargado_entrega_id=uuid.uuid4(), garantia_tipo=TipoGarantia.DNI,
+            fecha_entrega=ahora, fecha_vencimiento=ahora+timedelta(hours=5))
+
+    def test_renovar_respeta_limite(self):
+        p = self.crear_prestamo()
+        politica = Mock(duracion_maxima=12, permite_renovar=lambda n: n < 1)
+        anterior = p.fecha_vencimiento
+        p.renovar(politica)
+        self.assertEqual(p.fecha_vencimiento, anterior + timedelta(hours=12))
+        self.assertEqual(p.renovaciones_realizadas, 1)
+        with self.assertRaises(ValidationError):
+            p.renovar(politica)
+
+    def test_devolver_y_no_devolver_dos_veces(self):
+        p = self.crear_prestamo()
+        encargado = uuid.uuid4()
+        p.registrar_devolucion(encargado_id=encargado)
+        self.assertEqual(p.estado, EstadoPrestamo.DEVUELTO)
+        self.assertEqual(p.encargado_devolucion_id, encargado)
+        with self.assertRaises(ValidationError):
+            p.registrar_devolucion(encargado_id=encargado)
+
+    def test_cerrar_por_perdida(self):
+        p = self.crear_prestamo()
+        p.cerrar_por_perdida()
+        self.assertEqual(p.estado, EstadoPrestamo.CERRADO_POR_PERDIDA)
+        with self.assertRaises(ValidationError):
+            p.cerrar_por_perdida()
+
+    def test_elegibilidad_regla_pura(self):
+        from apps.circulacion.dominio.servicios import ServicioDeElegibilidad
+        politica = Mock(limite_simultaneo_global=2)
+        perfil = Mock(habilitado=True)
+        self.assertTrue(ServicioDeElegibilidad().evaluar(perfil, False, politica, [1]))
+        self.assertFalse(ServicioDeElegibilidad().evaluar(perfil, True, politica, []))
+        self.assertFalse(ServicioDeElegibilidad().evaluar(perfil, False, politica, [1, 2]))
+
+    def test_decidir_supervisor(self):
+        from apps.circulacion.dominio.servicios import ServicioDeAprobacion
+        servicio = ServicioDeAprobacion(Mock())
+        solicitud = Solicitud(estado=EstadoSolicitud.PENDIENTE)
+        self.assertEqual(servicio.decidir(solicitud, True), EstadoSolicitud.EN_ESPERA_SUPERVISOR)
+        self.assertEqual(servicio.decidir(solicitud, False), EstadoSolicitud.APROBADA)
+
+class AplicacionExtendidaTest(TestCase):
+    def test_solicitar_aprobar_rechazar_cancelar(self):
+        from apps.circulacion.aplicacion.servicios import SolicitudServicioAplicacion
+        from apps.circulacion.aplicacion.dtos import SolicitudDTO
+        from apps.circulacion.infraestructura.repositorio_django import SolicitudRepositorioImpl
+        servicio = SolicitudServicioAplicacion(SolicitudRepositorioImpl())
+        def crear():
+            return servicio.solicitar(SolicitudDTO(uuid.uuid4(), None, uuid.uuid4(),
+                date.today(), date.today()+timedelta(days=1)))
+        encargado = uuid.uuid4()
+        s = crear()
+        servicio.aprobar(s.id, encargado)
+        s.refresh_from_db()
+        self.assertEqual(s.estado, EstadoSolicitud.APROBADA)
+        s = crear()
+        servicio.rechazar(s.id, encargado, "No cumple")
+        s.refresh_from_db()
+        self.assertEqual(s.estado, EstadoSolicitud.RECHAZADA)
+        s = crear()
+        servicio.cancelar(s.id)
+        s.refresh_from_db()
+        self.assertEqual(s.estado, EstadoSolicitud.CANCELADA)
+
+    def test_entrega_rechaza_dependencias_incompletas(self):
+        from apps.circulacion.aplicacion.servicios import PrestamoServicioAplicacion
+        from apps.circulacion.aplicacion.dtos import EntregaPrestamoDTO
+        from apps.circulacion.infraestructura.repositorio_django import PrestamoRepositorioImpl
+        servicio = PrestamoServicioAplicacion(PrestamoRepositorioImpl())
+        with self.assertRaises(ValidationError):
+            servicio.registrar_entrega(EntregaPrestamoDTO(uuid.uuid4(), uuid.uuid4(), TipoGarantia.DNI, terminos_aceptados=True))

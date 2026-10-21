@@ -1,0 +1,26 @@
+"""Puertos de persistencia de Circulación según el modelo extendido."""
+from abc import ABC, abstractmethod
+
+class ISolicitudRepositorio(ABC):
+    @abstractmethod
+    def guardar(self, solicitud): ...
+    @abstractmethod
+    def buscar_por_id(self, solicitud_id): ...
+    @abstractmethod
+    def pendientes(self): ...
+    def obtener_por_id(self, solicitud_id):
+        return self.buscar_por_id(solicitud_id)
+
+class IPrestamoRepositorio(ABC):
+    @abstractmethod
+    def guardar(self, prestamo): ...
+    @abstractmethod
+    def buscar_por_id(self, prestamo_id): ...
+    @abstractmethod
+    def vigentes_de(self, solicitante_id): ...
+    @abstractmethod
+    def vencidos(self): ...
+    @abstractmethod
+    def existe_abierto_para_item(self, item_id): ...
+    def obtener_por_id(self, prestamo_id):
+        return self.buscar_por_id(prestamo_id)

@@ -75,9 +75,5 @@ class PoliticaServicioAplicacion(IPoliticaServicio):
             tipo_usuario
         )
 
-    def obtener_por_categoria(self, categoria_id, tipo_usuario):
-        return self.repositorio.buscar_por_categoria(
-            categoria_id,
-            tipo_usuario
-        )
+
 
