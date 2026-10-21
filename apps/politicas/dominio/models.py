@@ -7,7 +7,11 @@ from django.core.exceptions import ValidationError
 
 
 class PoliticaPrestamo(BaseModel):
-    tipo_item = models.CharField(max_length=100)
+    tipo_item = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True
+    )
     categoria_id = models.UUIDField(
         null=True,
         blank=True,
@@ -38,7 +42,8 @@ class PoliticaPrestamo(BaseModel):
         ]
 
     def __str__(self):
-        return f"{self.tipo_item} - {self.get_tipo_usuario_display()}"
+        identificador = self.categoria_id or self.tipo_item
+        return f"{identificador} - {self.get_tipo_usuario_display()}"
 
     def calcular_vencimiento(self, desde):
         return desde + timedelta(hours=self.duracion_maxima)
@@ -56,6 +61,10 @@ class PoliticaPrestamo(BaseModel):
 
     def clean(self):
         super().clean()
+        if not self.tipo_item and not self.categoria_id:
+            raise ValidationError(
+                "Debe indicar un tipo de ítem o una categoría."
+            )
 
         if self.duracion_maxima <= 0:
             raise ValidationError(

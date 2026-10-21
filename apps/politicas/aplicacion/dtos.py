@@ -4,7 +4,7 @@ from uuid import UUID
 
 @dataclass
 class PoliticaDTO:
-    tipo_item: str
+    tipo_item: str | None
     tipo_usuario: str
     duracion_maxima: int
     max_renovaciones: int

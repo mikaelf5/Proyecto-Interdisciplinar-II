@@ -200,3 +200,55 @@ class PoliticaServicioTests(TestCase):
         )
 
         self.assertEqual(politica.duracion_maxima, 12)
+
+    def test_crear_politica_solo_con_categoria_id(self):
+        import uuid
+
+        categoria_id = uuid.uuid4()
+
+        dto = PoliticaDTO(
+            tipo_item=None,
+            tipo_usuario="ALUMNO",
+            duracion_maxima=12,
+            max_renovaciones=1,
+            antelacion_reserva=0,
+            limite_simultaneo_global=3,
+            limite_simultaneo_por_tipo=1,
+            categoria_id=categoria_id
+        )
+
+        servicio = PoliticaServicioAplicacion(
+            PoliticaRepositorioImpl()
+        )
+
+        servicio.configurar(dto)
+
+        politica = servicio.obtener_por_categoria(
+            categoria_id,
+            "ALUMNO"
+        )
+
+        self.assertIsNotNone(politica)
+        self.assertIsNone(politica.tipo_item)
+        self.assertEqual(politica.duracion_maxima, 12)
+
+    def test_rechazar_politica_sin_identificador(self):
+        from django.core.exceptions import ValidationError
+
+        dto = PoliticaDTO(
+            tipo_item=None,
+            categoria_id=None,
+            tipo_usuario="ALUMNO",
+            duracion_maxima=12,
+            max_renovaciones=1,
+            antelacion_reserva=0,
+            limite_simultaneo_global=3,
+            limite_simultaneo_por_tipo=1
+        )
+
+        servicio = PoliticaServicioAplicacion(
+            PoliticaRepositorioImpl()
+        )
+
+        with self.assertRaises(ValidationError):
+            servicio.configurar(dto)
