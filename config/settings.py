@@ -83,7 +83,9 @@ TIME_ZONE = "America/Lima"
 USE_I18N = True
 USE_TZ = True
 
-LOGIN_URL = "/admin/login/"
+LOGIN_URL = "identidad:login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "identidad:login"
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "identidad.Cuenta"
