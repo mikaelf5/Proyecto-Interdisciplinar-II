@@ -1,10 +1,12 @@
 import uuid
+from unittest.mock import Mock
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from datetime import date, timedelta
 from django.test import TestCase
 from django.test import SimpleTestCase
 from django.core.exceptions import ValidationError
+from apps.circulacion.services import ServicioDeAprobacion
 
 from apps.common.choices import EstadoSolicitud, EstadoPrestamo, TipoGarantia
 from .models import Solicitud
@@ -328,4 +330,92 @@ class PrestamoRestriccionesTest(TestCase):
 
         prestamo.clean()
 
+class ServicioDeAprobacionTests(TestCase):
 
+    def test_item_especial_requiere_supervisor(self):
+        # Simulamos el servicio de Catálogo
+        catalogo = Mock()
+        catalogo.es_especial.return_value = True
+
+        # Simulamos una solicitud pendiente
+        solicitud = Mock()
+        solicitud.estado = EstadoSolicitud.PENDIENTE
+        solicitud.item_id = "item-123"
+        solicitud.categoria_id = None
+
+        servicio = ServicioDeAprobacion(catalogo)
+
+        resultado = servicio.determinar_flujo(solicitud)
+
+        self.assertEqual(
+            resultado,
+            EstadoSolicitud.EN_ESPERA_SUPERVISOR
+        )
+
+        solicitud.validar_transicion.assert_called_once_with(
+            EstadoSolicitud.EN_ESPERA_SUPERVISOR
+        )
+
+        solicitud.save.assert_called_once()
+
+    def test_item_normal_no_requiere_supervisor(self):
+        # Simulamos un ítem normal
+        catalogo = Mock()
+        catalogo.es_especial.return_value = False
+
+        # Simulamos una solicitud pendiente
+        solicitud = Mock()
+        solicitud.estado = EstadoSolicitud.PENDIENTE
+        solicitud.item_id = "item-123"
+        solicitud.categoria_id = None
+
+        servicio = ServicioDeAprobacion(catalogo)
+
+        resultado = servicio.determinar_flujo(solicitud)
+
+        self.assertEqual(
+            resultado,
+            EstadoSolicitud.PENDIENTE
+        )
+
+        solicitud.validar_transicion.assert_not_called()
+        solicitud.save.assert_not_called()
+
+    def test_no_permite_procesar_solicitud_aprobada(self):
+        catalogo = Mock()
+
+        solicitud = Mock()
+        solicitud.estado = EstadoSolicitud.APROBADA
+
+        servicio = ServicioDeAprobacion(catalogo)
+
+        with self.assertRaises(ValidationError):
+            servicio.determinar_flujo(solicitud)
+
+        catalogo.es_especial.assert_not_called()
+        solicitud.save.assert_not_called()
+
+    def test_categoria_especial_requiere_supervisor(self):
+        catalogo = Mock()
+        catalogo.es_especial.return_value = True
+
+        solicitud = Mock()
+        solicitud.estado = EstadoSolicitud.PENDIENTE
+        solicitud.item_id = None
+        solicitud.categoria_id = "categoria-123"
+
+        servicio = ServicioDeAprobacion(catalogo)
+
+        resultado = servicio.determinar_flujo(solicitud)
+
+        catalogo.es_especial.assert_called_once_with(
+            item_id=None,
+            categoria_id="categoria-123"
+        )
+
+        self.assertEqual(
+            resultado,
+            EstadoSolicitud.EN_ESPERA_SUPERVISOR
+        )
+
+        solicitud.save.assert_called_once()

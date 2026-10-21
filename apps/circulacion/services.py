@@ -1,3 +1,6 @@
+from django.core.exceptions import ValidationError
+from apps.common.choices import EstadoSolicitud
+
 class AprobarYEntregarPrestamo:
     """
     Coordina la aprobación de una solicitud y la entrega del ítem.
@@ -40,9 +43,28 @@ class ServicioDeElegibilidad:
 
 class ServicioDeAprobacion:
     """
-    Determina el flujo de aprobación de una solicitud.
-
-    Considera si el recurso requiere aprobación normal
-    o aprobación adicional de un supervisor.
+    Determina si una solicitud necesita aprobación de supervisor.
     """
-    pass
+
+    def __init__(self, catalogo):
+        self.catalogo = catalogo
+
+    def requiere_supervisor(self, solicitud):
+        return self.catalogo.es_especial(
+            item_id=solicitud.item_id,
+            categoria_id=solicitud.categoria_id,
+        )
+    def determinar_flujo(self, solicitud):
+        if solicitud.estado != EstadoSolicitud.PENDIENTE:
+            raise ValidationError(
+                "Solo se puede determinar el flujo de una solicitud pendiente."
+            )
+
+        if self.requiere_supervisor(solicitud):
+            solicitud.validar_transicion(
+                EstadoSolicitud.EN_ESPERA_SUPERVISOR
+            )
+            solicitud.estado = EstadoSolicitud.EN_ESPERA_SUPERVISOR
+            solicitud.save()
+
+        return solicitud.estado
