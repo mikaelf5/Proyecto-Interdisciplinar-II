@@ -4,7 +4,7 @@
 {% block content %}
 <h1 class="h3 mb-3">Eliminar reporte</h1>
 <div class="card p-4" style="max-width: 560px;">
-    <p>¿Seguro que quieres eliminar el reporte "{{ object.get_tipo_display }}"?</p>
+    <p>¿Seguro que quieres eliminar el reporte «{{ object.get_tipo_display }}»?</p>
     <form method="post">
         {% csrf_token %}
         <button type="submit" class="btn btn-danger">Sí, eliminar</button>

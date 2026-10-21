@@ -11,6 +11,5 @@ class RegistroAuditoriaAdmin(admin.ModelAdmin):
     readonly_fields = ("id", "creado_en", "actualizado_en", "fecha_hora")
     date_hierarchy = "fecha_hora"
 
-    def has_change_permission(self, request, obj=None):
-        # Un registro de auditoría no debería poder editarse una vez creado.
+    def has_delete_permission(self, request, obj=None):
         return False

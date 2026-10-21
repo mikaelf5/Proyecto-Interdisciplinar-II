@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Levantar sanción{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Levantar sanción</h1>
+<div class="card p-4" style="max-width: 560px;">
+    <p class="mb-1">
+        {{ object.get_tipo_display }} para <code>{{ object.solicitante_id }}</code>,
+        desde el {{ object.fecha_inicio|date:"d/m/Y" }}.
+    </p>
+    <p class="text-muted small">{{ object.motivo }}</p>
+
+    {% if not object.activa %}
+        <div class="alert alert-info">Esta sanción ya está levantada.</div>
+        <a href="{% url 'sanciones:lista' %}" class="btn btn-link ps-0">Volver</a>
+    {% else %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label" for="motivo">Motivo para levantarla</label>
+            <textarea name="motivo" id="motivo" rows="3" class="form-control">{{ motivo }}</textarea>
+            {% if error %}<div class="text-danger small">{{ error }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-success">Levantar sanción</button>
+        <a href="{% url 'sanciones:lista' %}" class="btn btn-link">Cancelar</a>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

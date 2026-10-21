@@ -7,57 +7,16 @@
 <div class="card p-4" style="max-width: 640px;">
     <form method="post" novalidate>
         {% csrf_token %}
+        {{ form.non_field_errors }}
 
-        {% if form.errors %}
-        <div class="alert alert-danger">
-            <ul class="mb-0">
-                {% for field in form %}{% for error in field.errors %}
-                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
-                {% endfor %}{% endfor %}
-                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
-            </ul>
-        </div>
-        {% endif %}
+        {% include "includes/campo.html" with campo=form.solicitante_id etiqueta="Solicitante" %}
+        {% include "includes/campo.html" with campo=form.prestamo_id etiqueta="Préstamo relacionado" %}
+        {% include "includes/campo.html" with campo=form.tipo etiqueta="Tipo de sanción" %}
+        {% include "includes/campo.html" with campo=form.motivo etiqueta="Motivo" %}
+        {% include "includes/campo.html" with campo=form.duracion_dias etiqueta="Duración (días)" %}
+        {% include "includes/campo.html" with campo=form.fecha_inicio etiqueta="Fecha de inicio" %}
 
-        <div class="mb-3">
-            <label class="form-label">ID del solicitante (UUID)</label>
-            {{ form.solicitante_id }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">ID de quien aplica la sanción (UUID)</label>
-            {{ form.aplicada_por_id }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">ID del préstamo relacionado (opcional)</label>
-            {{ form.prestamo_id }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Tipo de sanción</label>
-            {{ form.tipo }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Motivo</label>
-            {{ form.motivo }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Duración en días (si aplica)</label>
-            {{ form.duracion_dias }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Fecha de inicio</label>
-            {{ form.fecha_inicio }}
-        </div>
-
-        <div class="form-check mb-3">
-            {{ form.activa }}
-            <label class="form-check-label">Sanción activa</label>
-        </div>
+        <p class="text-muted small">Quedará registrado quién aplica la sanción (tu cuenta) y la acción en la auditoría.</p>
 
         <button type="submit" class="btn btn-primary">Guardar</button>
         <a href="{% url 'sanciones:lista' %}" class="btn btn-link">Cancelar</a>

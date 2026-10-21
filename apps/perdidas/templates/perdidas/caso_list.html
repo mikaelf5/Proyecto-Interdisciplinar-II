@@ -3,18 +3,35 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Casos de pérdida</h1>
+    <h1 class="h3 mb-0">Casos de pérdida <span class="text-muted fs-6">({{ abiertos }} abiertos)</span></h1>
     <a href="{% url 'perdidas:crear' %}" class="btn btn-primary">+ Nuevo caso</a>
 </div>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <select name="estado" class="form-select" onchange="this.form.submit()">
+            <option value="">Todos los estados</option>
+            <option value="abierto" {% if request.GET.estado == "abierto" %}selected{% endif %}>Abiertos</option>
+            <option value="cerrado" {% if request.GET.estado == "cerrado" %}selected{% endif %}>Cerrados</option>
+        </select>
+    </div>
+    <div class="col-md-6">
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por préstamo, solicitante u observaciones">
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+        <button class="btn btn-outline-secondary">Buscar</button>
+        <a href="{% url 'perdidas:lista' %}" class="btn btn-link">Limpiar</a>
+    </div>
+</form>
 
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
+                    <th>Fecha</th>
                     <th>Préstamo</th>
                     <th>Solicitante</th>
-                    <th>Fecha</th>
                     <th>Costo estimado</th>
                     <th>Estado</th>
                     <th></th>
@@ -23,27 +40,47 @@
             <tbody>
                 {% for c in casos %}
                 <tr>
+                    <td>{{ c.fecha|date:"d/m/Y" }}</td>
                     <td><code>{{ c.prestamo_id }}</code></td>
-                    <td><code>{{ c.solicitante_id }}</code></td>
-                    <td>{{ c.fecha }}</td>
-                    <td>{% if c.costo_estimado %}S/ {{ c.costo_estimado }}{% else %}—{% endif %}</td>
+                    <td><a href="{% url 'sanciones:historial' c.solicitante_id %}" title="Ver sanciones del solicitante"><code>{{ c.solicitante_id }}</code></a></td>
+                    <td>{% if c.costo_estimado is not None %}S/ {{ c.costo_estimado }}{% else %}—{% endif %}</td>
                     <td>
-                        {% if c.cerrado %}
-                            <span class="badge badge-inactiva">Cerrado</span>
-                        {% else %}
-                            <span class="badge badge-activa">Abierto</span>
-                        {% endif %}
+                        {% if c.cerrado %}<span class="badge bg-secondary">Cerrado</span>
+                        {% else %}<span class="badge bg-success">Abierto</span>{% endif %}
                     </td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-warning"
+                           href="{% url 'sanciones:crear' %}?solicitante_id={{ c.solicitante_id }}&amp;prestamo_id={{ c.prestamo_id }}&amp;motivo={% filter urlencode %}Pérdida de ítem (caso del {{ c.fecha|date:'d/m/Y' }}){% endfilter %}">Sancionar</a>
+                        {% if not c.cerrado %}
+                        <form method="post" action="{% url 'perdidas:cerrar' c.pk %}" class="d-inline"
+                              onsubmit="return confirm('¿Cerrar este caso de pérdida?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success">Cerrar caso</button>
+                        </form>
+                        {% endif %}
                         <a href="{% url 'perdidas:editar' c.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
                         <a href="{% url 'perdidas:eliminar' c.pk %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No hay casos de pérdida registrados.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay casos que coincidan.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
 {% endblock %}
