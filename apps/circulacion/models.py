@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from apps.common.choices import EstadoSolicitud, EstadoPrestamo, TipoGarantia
 from apps.common.models import BaseModel
+from django.db.models import Q
 
 
 class Solicitud(BaseModel):
@@ -34,9 +35,34 @@ class Solicitud(BaseModel):
     class Meta:
         verbose_name = "solicitud"
         verbose_name_plural = "solicitudes"
+        ordering = ["-creado_en"]
 
     def __str__(self):
         return f"Solicitud {self.id} - {self.estado}"
+
+    TRANSICIONES_PERMITIDAS = {
+        EstadoSolicitud.PENDIENTE: [
+            EstadoSolicitud.APROBADA,
+            EstadoSolicitud.EN_ESPERA_SUPERVISOR,
+            EstadoSolicitud.RECHAZADA,
+            EstadoSolicitud.CANCELADA,
+        ],
+        EstadoSolicitud.EN_ESPERA_SUPERVISOR: [
+            EstadoSolicitud.APROBADA,
+            EstadoSolicitud.RECHAZADA,
+        ],
+        EstadoSolicitud.APROBADA: [],
+        EstadoSolicitud.RECHAZADA: [],
+        EstadoSolicitud.CANCELADA: [],
+    }
+
+    def validar_transicion(self, nuevo_estado):
+        permitidos = self.TRANSICIONES_PERMITIDAS.get(self.estado, [])
+
+        if nuevo_estado not in permitidos:
+            raise ValidationError(
+                f"No se puede cambiar una solicitud de {self.estado} a {nuevo_estado}."
+            )
 
     def clean(self):
         super().clean()
@@ -51,24 +77,69 @@ class Solicitud(BaseModel):
                 "La solicitud no puede indicar un ítem y una categoría al mismo tiempo."
             )
 
-        if self.fecha_fin < self.fecha_inicio:
+        if self.fecha_inicio is not None and self.fecha_fin is not None:
+            if self.fecha_fin < self.fecha_inicio:
+                raise ValidationError(
+                    "La fecha de fin no puede ser anterior a la fecha de inicio."
+                )
+
+    def aprobar(self, revisor_id):
+        if self.estado != EstadoSolicitud.PENDIENTE:
             raise ValidationError(
-                "La fecha de fin no puede ser anterior a la fecha de inicio."
+                "Solo se pueden aprobar directamente las solicitudes pendientes."
             )
 
-    def aprobar(self):
+        self.validar_transicion(EstadoSolicitud.APROBADA)
+
+        if revisor_id is None:
+            raise ValidationError(
+                "Debe indicarse quién aprueba la solicitud."
+            )
+
+        self.revisado_por_id = revisor_id
         self.estado = EstadoSolicitud.APROBADA
+        self.save()
 
     def aprobar_como_supervisor(self, supervisor_id):
+        if self.estado != EstadoSolicitud.EN_ESPERA_SUPERVISOR:
+            raise ValidationError(
+                "Solo se pueden aprobar como supervisor las solicitudes en espera de supervisor."
+            )
+
+        self.validar_transicion(EstadoSolicitud.APROBADA)
+
+        if supervisor_id is None:
+            raise ValidationError(
+                "Debe indicar quién aprueba la solicitud."
+            )
+
         self.aprobado_por_supervisor_id = supervisor_id
         self.estado = EstadoSolicitud.APROBADA
+        self.save()
 
-    def rechazar(self, motivo):
-        self.motivo_rechazo = motivo
+    def rechazar(self, motivo, revisor_id):
+        self.validar_transicion(EstadoSolicitud.RECHAZADA)
+
+        if not motivo or not motivo.strip():
+            raise ValidationError(
+                "Debe indicar un motivo para rechazar la solicitud."
+            )
+
+        if revisor_id is None:
+            raise ValidationError(
+                "Debe indicar quién rechaza la solicitud."
+            )
+
+        self.motivo_rechazo = motivo.strip()
+        self.revisado_por_id = revisor_id
         self.estado = EstadoSolicitud.RECHAZADA
+        self.save()
 
     def cancelar(self):
+        self.validar_transicion(EstadoSolicitud.CANCELADA)
+
         self.estado = EstadoSolicitud.CANCELADA
+        self.save()
 
     def requiere_supervisor(self):
         return self.estado == EstadoSolicitud.EN_ESPERA_SUPERVISOR
@@ -112,6 +183,29 @@ class Prestamo(BaseModel):
     class Meta:
         verbose_name = "préstamo"
         verbose_name_plural = "préstamos"
+        ordering = ["-fecha_entrega"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item_id"],
+                condition=Q(
+                    estado__in=[
+                        EstadoPrestamo.ACTIVO,
+                        EstadoPrestamo.VENCIDO,
+                    ]
+                ),
+                name="unique_prestamo_abierto_por_item",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.fecha_entrega is not None and self.fecha_vencimiento is not None:
+            if self.fecha_vencimiento <= self.fecha_entrega:
+                raise ValidationError(
+                    "La fecha de vencimiento debe ser posterior a la fecha de entrega."
+                )
 
     def __str__(self):
         return f"Préstamo {self.id} - {self.estado}"
