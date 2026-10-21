@@ -10,17 +10,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from .servicios import generar_datos
-
-EXCEL = "excel"
-PDF = "pdf"
-FORMATOS = (EXCEL, PDF)
-
-CONTENT_TYPES = {
-    EXCEL: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    PDF: "application/pdf",
-}
-EXTENSIONES = {EXCEL: "xlsx", PDF: "pdf"}
 
 
 def a_excel(datos):
@@ -94,15 +83,9 @@ def a_pdf(datos):
     doc.build(elementos)
     return salida.getvalue()
 
+from apps.reportes.dominio.exportador import EXCEL, IExportador
 
-def exportar(reporte, formato):
-    """Devuelve (bytes, content_type, nombre_de_archivo). Lanza ReporteNoDisponible."""
-    if formato not in FORMATOS:
-        raise ValueError(f"Formato no soportado: {formato}")
-    datos = generar_datos(reporte)
-    contenido = a_excel(datos) if formato == EXCEL else a_pdf(datos)
-    nombre = (
-        f"reporte_{reporte.tipo.lower()}_{reporte.periodo_inicio:%Y%m%d}"
-        f"_{reporte.periodo_fin:%Y%m%d}.{EXTENSIONES[formato]}"
-    )
-    return contenido, CONTENT_TYPES[formato], nombre
+
+class ExportadorExcelPDF(IExportador):
+    def exportar(self, datos, formato):
+        return a_excel(datos) if formato == EXCEL else a_pdf(datos)

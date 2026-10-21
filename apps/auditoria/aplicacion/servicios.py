@@ -22,6 +22,7 @@ class AuditoriaServicioAplicacion(IAuditoriaServicio):
             entidad_id=entidad_id, motivo=motivo,
         )
         self._repo.guardar(registro)
+        return self._repo.guardar(registro)
 
     def buscar(self, filtros):
         return self._repo.buscar(filtros)

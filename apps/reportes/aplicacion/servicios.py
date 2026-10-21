@@ -2,11 +2,14 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from apps.perdidas.models import CasoPerdida
-from apps.sanciones.models import Sancion, TipoSancion
+from apps.sanciones.models import TipoSancion
 from apps.sanciones.servicios import estado_de
 
-from .models import TipoReporte
+
+from apps.reportes.dominio.datos import DatosReporte, ReporteNoDisponible
+from apps.reportes.dominio.exportador import CONTENT_TYPES, EXTENSIONES, FORMATOS
+from apps.reportes.dominio.models import TipoReporte
+
 
 # Tipos que ya se pueden calcular con los datos de este equipo de módulos.
 # Los demás dependen de Circulación (préstamos) y se habilitan al integrarlo.
@@ -16,44 +19,14 @@ TIPOS_DISPONIBLES = {
 }
 
 
-class ReporteNoDisponible(Exception):
-    """El tipo de reporte necesita datos de otro módulo que aún no se conecta."""
-
-
-@dataclass
-class DatosReporte:
-    titulo: str
-    subtitulo: str
-    resumen: list = field(default_factory=list)   # [(etiqueta, valor), ...]
-    columnas: list = field(default_factory=list)
-    filas: list = field(default_factory=list)     # lista de listas de str
-
-
-def esta_disponible(tipo):
-    return tipo in TIPOS_DISPONIBLES
-
 
 def _periodo(reporte):
     return f"Periodo: {reporte.periodo_inicio:%d/%m/%Y} al {reporte.periodo_fin:%d/%m/%Y}"
 
 
-def generar_datos(reporte):
-    if reporte.tipo == TipoReporte.SANCIONES_POR_PERIODO:
-        return _sanciones_por_periodo(reporte)
-    if reporte.tipo == TipoReporte.ITEMS_PERDIDOS_DANIADOS:
-        return _perdidas_por_periodo(reporte)
-    raise ReporteNoDisponible(
-        f"El reporte «{reporte.get_tipo_display()}» necesita los datos de préstamos "
-        "(módulo Circulación) y se habilitará al integrarlo."
-    )
 
 
-def _sanciones_por_periodo(reporte):
-    sanciones = list(
-        Sancion.objects.filter(
-            fecha_inicio__range=(reporte.periodo_inicio, reporte.periodo_fin)
-        ).order_by("fecha_inicio", "creado_en")
-    )
+def _sanciones_por_periodo(reporte, sanciones):
     por_tipo = {valor: 0 for valor, _ in TipoSancion.choices}
     vigentes = 0
     filas = []
@@ -81,12 +54,7 @@ def _sanciones_por_periodo(reporte):
     )
 
 
-def _perdidas_por_periodo(reporte):
-    casos = list(
-        CasoPerdida.objects.filter(
-            fecha__range=(reporte.periodo_inicio, reporte.periodo_fin)
-        ).order_by("fecha", "creado_en")
-    )
+def _perdidas_por_periodo(reporte, casos):
     costo_total = sum((c.costo_estimado for c in casos if c.costo_estimado), Decimal("0"))
     filas = [
         [
@@ -112,3 +80,55 @@ def _perdidas_por_periodo(reporte):
         columnas=["Fecha", "Préstamo", "Solicitante", "Observaciones", "Costo estimado", "Estado"],
         filas=filas,
     )
+
+
+class ReporteServicioAplicacion:
+    def __init__(self, repositorio, sancion_servicio, caso_perdida_servicio, exportador):
+        self._repo = repositorio
+        self._sanciones = sancion_servicio
+        self._casos = caso_perdida_servicio
+        self._exportador = exportador
+
+    # --- CRUD ---
+    def listar(self):
+        return self._repo.listar()
+
+    def obtener(self, pk):
+        return self._repo.obtener(pk)
+
+    def crear(self, reporte, actor_id):
+        reporte.generado_por_id = actor_id
+        return self._repo.guardar(reporte)
+
+    def actualizar(self, reporte):
+        return self._repo.guardar(reporte)
+
+    def eliminar(self, reporte):
+        self._repo.eliminar(reporte)
+
+    # --- cálculo y exportación ---
+    def esta_disponible(self, tipo):
+        return tipo in TIPOS_DISPONIBLES
+
+    def generar_datos(self, reporte):
+        inicio, fin = reporte.periodo_inicio, reporte.periodo_fin
+        if reporte.tipo == TipoReporte.SANCIONES_POR_PERIODO:
+            return _sanciones_por_periodo(reporte, self._sanciones.por_periodo(inicio, fin))
+        if reporte.tipo == TipoReporte.ITEMS_PERDIDOS_DANIADOS:
+            return _perdidas_por_periodo(reporte, self._casos.por_periodo(inicio, fin))
+        raise ReporteNoDisponible(
+            f"El reporte «{reporte.get_tipo_display()}» necesita los datos de préstamos "
+            "(módulo Circulación) y se habilitará al integrarlo."
+        )
+
+    def exportar(self, reporte, formato):
+        """Devuelve (bytes, content_type, nombre). Lanza ReporteNoDisponible."""
+        if formato not in FORMATOS:
+            raise ValueError(f"Formato no soportado: {formato}")
+        datos = self.generar_datos(reporte)
+        contenido = self._exportador.exportar(datos, formato)
+        nombre = (
+            f"reporte_{reporte.tipo.lower()}_{reporte.periodo_inicio:%Y%m%d}"
+            f"_{reporte.periodo_fin:%Y%m%d}.{EXTENSIONES[formato]}"
+        )
+        return contenido, CONTENT_TYPES[formato], nombre

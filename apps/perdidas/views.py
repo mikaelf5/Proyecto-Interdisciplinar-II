@@ -2,22 +2,30 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect
+from django.http import Http404, HttpResponseRedirect
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
-from apps.auditoria.models import TipoAccion
-from apps.auditoria.utils import auditar
+from apps.auditoria.utils import actor_id_de
 
+from .fabrica import caso_perdida_servicio
 from .forms import CasoPerdidaForm
 from .models import CasoPerdida
 
 
-class CasoPerdidaListView(LoginRequiredMixin, ListView):
-    """Lista con filtro por estado (abierto/cerrado) y búsqueda por IDs."""
+class _ObtenerPorServicio:
+    """get_object() pasa por el servicio, no por el ORM."""
 
+    def get_object(self, queryset=None):
+        caso = caso_perdida_servicio().obtener(self.kwargs["pk"])
+        if caso is None:
+            raise Http404("Caso no encontrado")
+        return caso
+
+
+class CasoPerdidaListView(LoginRequiredMixin, ListView):
     model = CasoPerdida
     template_name = "perdidas/caso_list.html"
     context_object_name = "casos"
@@ -25,19 +33,7 @@ class CasoPerdidaListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         get = self.request.GET
-        qs = CasoPerdida.objects.all().order_by("cerrado", "-fecha", "-creado_en")
-        if get.get("estado") == "abierto":
-            qs = qs.filter(cerrado=False)
-        elif get.get("estado") == "cerrado":
-            qs = qs.filter(cerrado=True)
-        q = get.get("q", "").strip()
-        if q:
-            qs = qs.filter(
-                Q(prestamo_id__icontains=q)
-                | Q(solicitante_id__icontains=q)
-                | Q(observaciones__icontains=q)
-            )
-        return qs
+        return caso_perdida_servicio().listar(get.get("estado", ""), get.get("q", ""))
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -45,7 +41,7 @@ class CasoPerdidaListView(LoginRequiredMixin, ListView):
         params.pop("page", None)
         ctx.update(
             querystring=params.urlencode(),
-            abiertos=CasoPerdida.objects.filter(cerrado=False).count(),
+            abiertos=caso_perdida_servicio().contar_abiertos(),
         )
         return ctx
 
@@ -62,55 +58,47 @@ class CasoPerdidaCreateView(LoginRequiredMixin, CreateView):
         return initial
 
     def form_valid(self, form):
-        response = super().form_valid(form)
-        caso = self.object
-        auditar(
-            self.request, TipoAccion.ITEM_DANIADO, "CasoPerdida", caso.pk,
-            f"Pérdida registrada: {caso.observaciones or 'sin observaciones'}",
+        self.object = caso_perdida_servicio().registrar(
+            form.save(commit=False), actor_id_de(self.request)
         )
         messages.success(
             self.request,
             "Caso de pérdida registrado. Puedes aplicar una sanción desde la lista.",
         )
-        return response
+        return HttpResponseRedirect(self.get_success_url())
 
 
-class CasoPerdidaUpdateView(LoginRequiredMixin, UpdateView):
+class CasoPerdidaUpdateView(LoginRequiredMixin, _ObtenerPorServicio, UpdateView):
     model = CasoPerdida
     form_class = CasoPerdidaForm
     template_name = "perdidas/caso_form.html"
     success_url = reverse_lazy("perdidas:lista")
 
     def form_valid(self, form):
-        response = super().form_valid(form)
+        self.object = caso_perdida_servicio().actualizar(form.save(commit=False))
         messages.success(self.request, "Caso de pérdida actualizado.")
-        return response
+        return HttpResponseRedirect(self.get_success_url())
 
 
 class CasoPerdidaCerrarView(LoginRequiredMixin, View):
-    """Cierra el caso (y, cuando se integre Circulación, el préstamo)."""
-
     def post(self, request, pk):
-        caso = get_object_or_404(CasoPerdida, pk=pk)
-        if caso.cerrado:
-            messages.info(request, "Ese caso ya estaba cerrado.")
-        else:
-            caso.cerrar_prestamo()
-            auditar(request, TipoAccion.CAMBIO_ESTADO, "CasoPerdida", caso.pk,
-                    "Caso de pérdida cerrado")
+        servicio = caso_perdida_servicio()
+        caso = servicio.obtener(pk)
+        if caso is None:
+            raise Http404("Caso no encontrado")
+        if servicio.cerrar(caso, actor_id_de(request)):
             messages.success(request, "Caso cerrado.")
+        else:
+            messages.info(request, "Ese caso ya estaba cerrado.")
         return redirect("perdidas:lista")
 
 
-class CasoPerdidaDeleteView(LoginRequiredMixin, DeleteView):
+class CasoPerdidaDeleteView(LoginRequiredMixin, _ObtenerPorServicio, DeleteView):
     model = CasoPerdida
     template_name = "perdidas/caso_confirm_delete.html"
     success_url = reverse_lazy("perdidas:lista")
 
     def form_valid(self, form):
-        pk, prestamo = self.object.pk, self.object.prestamo_id
-        response = super().form_valid(form)
-        auditar(self.request, TipoAccion.CAMBIO_ESTADO, "CasoPerdida", pk,
-                f"Caso de pérdida eliminado (préstamo {prestamo})")
+        caso_perdida_servicio().eliminar(self.object, actor_id_de(self.request))
         messages.success(self.request, "Caso eliminado.")
-        return response
+        return HttpResponseRedirect(self.get_success_url())

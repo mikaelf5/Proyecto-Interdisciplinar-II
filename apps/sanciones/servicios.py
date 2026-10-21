@@ -14,9 +14,8 @@ ESTADOS = [
 
 def fecha_fin(sancion):
     """Último día de la sanción, o None si no tiene duración (ej. baneo)."""
-    if sancion.duracion_dias:
-        return sancion.fecha_inicio + timedelta(days=sancion.duracion_dias - 1)
-    return None
+    return sancion.fecha_fin()
+
 
 
 def estado_de(sancion, hoy=None):

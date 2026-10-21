@@ -51,3 +51,6 @@ class RegistroAuditoria(BaseModel):
             entidad_id=entidad_id,
             motivo=motivo,
         )
+
+    def delete(self, *args, **kwargs):
+        raise models.ProtectedError("Los registros de auditoría no se pueden borrar.", {self})

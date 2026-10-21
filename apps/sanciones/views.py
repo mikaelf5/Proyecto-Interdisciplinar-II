@@ -137,7 +137,7 @@ class SancionLevantarView(LoginRequiredMixin, View):
                 {"object": sancion, "error": "Indica el motivo (mínimo 5 caracteres).",
                  "motivo": motivo},
             )
-        sancion.cerrar()
+        sancion.levantar()
         auditar(request, TipoAccion.SANCION, "Sancion", sancion.pk,
                 f"Sanción levantada: {motivo}")
         messages.success(request, "Sanción levantada.")
