@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from apps.common.choices import EstadoItem
 
 from ..dominio.models import Categoria, CondicionFisica, Item
 from ..infraestructura.repositorios import (
@@ -29,7 +30,7 @@ from .dtos import CategoriaDTO, FiltrosItem, ItemDTO
 
 
 class ICatalogoServicio(ABC):
-    # --- firmas del PDF ---
+    
     @abstractmethod
     def crear_categoria(self, nombre, es_especial=False, definicion_atributos=None): ...
 
@@ -48,6 +49,11 @@ class ICatalogoServicio(ABC):
     @abstractmethod
     def registrar_condicion(self, dto): ...
 
+    @abstractmethod
+    def marcar_prestado(self, item_id): ...
+
+    @abstractmethod
+    def marcar_disponible(self, item_id): ...
     @abstractmethod
     def buscar_items(self, filtros=None): ...
 
@@ -112,7 +118,15 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
         item.dar_de_baja(motivo)
         self.items.guardar(item)
         return ItemDTO.desde(item)
+    
+    def marcar_prestado(self, item_id):
+        """Lo llama Circulación al entregar un préstamo."""
+        return self.cambiar_estado_item(item_id, EstadoItem.PRESTADO)
 
+    def marcar_disponible(self, item_id):
+        """Lo llama Circulación al registrar una devolución sin daños."""
+        return self.cambiar_estado_item(item_id, EstadoItem.DISPONIBLE)
+    
     @transaction.atomic
     def registrar_condicion(self, dto):
         item = self.items.buscar_por_id(dto.item_id)

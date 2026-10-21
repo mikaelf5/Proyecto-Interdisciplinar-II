@@ -27,28 +27,31 @@ from apps.reservas.aplicacion.servicios import ReservaServicioAplicacion
 
 CLAVE = "demo1234"
 CUENTAS = [
-    # correo, nombres, dni, es_staff
-    ("encargado@demo.pe", "Elena Encargada", "70000001", True),
-    ("ana@demo.pe", "Ana Alumna", "70000002", False),
-    ("diego@demo.pe", "Diego Docente", "70000003", False),
+    # correo, nombres, dni, rol, es_staff
+    ("admin@demo.pe", "Adriana Administradora", "70000000", "ADMINISTRADOR", True),
+    ("encargado@demo.pe", "Elena Encargada", "70000001", "ENCARGADO", True),
+    ("supervisor@demo.pe", "Sergio Supervisor", "70000004", "SUPERVISOR", True),
+    ("ana@demo.pe", "Ana Alumna", "70000002", "SOLICITANTE", False),
+    ("diego@demo.pe", "Diego Docente", "70000003", "SOLICITANTE", False),
 ]
 
 
 class Command(BaseCommand):
     help = "Carga datos de demo para Catálogo, Reservas y Notificaciones."
 
-    def _cuenta(self, correo, nombres, dni, staff):
+    def _cuenta(self, correo, nombres, dni, rol, staff):
         Cuenta = get_user_model()
         cuenta = Cuenta.objects.filter(correo=correo).first()
         if not cuenta:
             cuenta = Cuenta.objects.create_user(correo, nombres, dni, CLAVE, is_staff=staff, is_superuser=staff)
+        cuenta.asignar_rol(rol)  # método del dominio de Identidad (no duplica si ya lo tiene)
         return cuenta
 
     def handle(self, *args, **opciones):
         call_command("seed_catalogo", stdout=self.stdout)
 
         cuentas = [self._cuenta(*c) for c in CUENTAS]
-        _, ana, diego = cuentas
+        ana, diego = cuentas[3], cuentas[4]
         self.stdout.write(f"Cuentas listas (contraseña: {CLAVE}): " + ", ".join(c[0] for c in CUENTAS))
 
         catalogo = CatalogoServicioAplicacion()

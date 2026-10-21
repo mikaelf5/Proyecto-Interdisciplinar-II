@@ -52,3 +52,12 @@ class CatalogoServicioTests(TestCase):
     def test_es_especial_para_circulacion(self):
         self.assertTrue(self.s.es_especial(item_id=self.laptop.id))
         self.assertTrue(self.s.es_especial(categoria_id=self.equipos.id))
+
+    def test_marcar_prestado_y_disponible(self):
+        self.assertEqual(self.s.marcar_prestado(self.laptop.id).estado, EstadoItem.PRESTADO)
+        self.assertEqual(self.s.marcar_disponible(self.laptop.id).estado, EstadoItem.DISPONIBLE)
+
+    def test_no_se_presta_un_item_en_mantenimiento(self):
+        self.s.marcar_daniado(self.laptop.id, "Pantalla rota")
+        with self.assertRaises(ValidationError):
+            self.s.marcar_prestado(self.laptop.id)
