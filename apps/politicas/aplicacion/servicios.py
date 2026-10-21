@@ -16,6 +16,10 @@ class IPoliticaServicio(ABC):
     def validar_plazo(self, tipo_item, tipo_usuario, fecha_entrega, fecha_devolucion):
         pass
 
+    @abstractmethod
+    def obtener_por_categoria(self, categoria_id, tipo_usuario):
+        pass
+
 class PoliticaServicioAplicacion(IPoliticaServicio):
 
     def __init__(self, repositorio):
@@ -28,10 +32,16 @@ class PoliticaServicioAplicacion(IPoliticaServicio):
         )
 
     def configurar(self, dto):
-        politica = self.repositorio.buscar_para(
-            dto.tipo_item,
-            dto.tipo_usuario
-        )
+        if dto.categoria_id is not None:
+            politica = self.repositorio.buscar_por_categoria(
+                dto.categoria_id,
+                dto.tipo_usuario
+            )
+        else:
+            politica = self.repositorio.buscar_para(
+                dto.tipo_item,
+                dto.tipo_usuario
+            )
 
         if politica is None:
             politica = PoliticaPrestamo(
@@ -40,6 +50,7 @@ class PoliticaServicioAplicacion(IPoliticaServicio):
             )
 
         politica.duracion_maxima = dto.duracion_maxima
+        politica.categoria_id = dto.categoria_id
         politica.max_renovaciones = dto.max_renovaciones
         politica.antelacion_reserva = dto.antelacion_reserva
         politica.limite_simultaneo_global = dto.limite_simultaneo_global
@@ -57,3 +68,16 @@ class PoliticaServicioAplicacion(IPoliticaServicio):
             )
 
         return politica.validar_plazo(fecha_entrega, fecha_devolucion)
+
+    def obtener_por_categoria(self, categoria_id, tipo_usuario):
+        return self.repositorio.buscar_por_categoria(
+            categoria_id,
+            tipo_usuario
+        )
+
+    def obtener_por_categoria(self, categoria_id, tipo_usuario):
+        return self.repositorio.buscar_por_categoria(
+            categoria_id,
+            tipo_usuario
+        )
+

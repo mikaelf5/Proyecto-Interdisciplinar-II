@@ -119,3 +119,84 @@ class PoliticaServicioTests(TestCase):
                 tipo_usuario=TipoUsuario.ALUMNO
             ).exists()
         )
+
+    def test_buscar_politica_por_categoria(self):
+        import uuid
+
+        categoria_id = uuid.uuid4()
+
+        dto = PoliticaDTO(
+            tipo_item="Laptop",
+            tipo_usuario="ALUMNO",
+            duracion_maxima=12,
+            max_renovaciones=1,
+            antelacion_reserva=0,
+            limite_simultaneo_global=3,
+            limite_simultaneo_por_tipo=1,
+            categoria_id=categoria_id
+        )
+
+        servicio = PoliticaServicioAplicacion(PoliticaRepositorioImpl())
+        servicio.configurar(dto)
+
+        politica = servicio.obtener_por_categoria(
+            categoria_id,
+            "ALUMNO"
+        )
+
+        self.assertIsNotNone(politica)
+        self.assertEqual(politica.categoria_id, categoria_id)
+
+    def test_buscar_categoria_sin_politica(self):
+        import uuid
+
+        categoria_id = uuid.uuid4()
+
+        servicio = PoliticaServicioAplicacion(PoliticaRepositorioImpl())
+
+        politica = servicio.obtener_por_categoria(
+            categoria_id,
+            "ALUMNO"
+        )
+
+        self.assertIsNone(politica)
+
+    def test_actualizar_politica_por_categoria_sin_duplicar(self):
+        import uuid
+
+        categoria_id = uuid.uuid4()
+
+        servicio = PoliticaServicioAplicacion(
+            PoliticaRepositorioImpl()
+        )
+
+        dto = PoliticaDTO(
+            tipo_item="Laptop",
+            tipo_usuario="ALUMNO",
+            duracion_maxima=8,
+            max_renovaciones=1,
+            antelacion_reserva=0,
+            limite_simultaneo_global=3,
+            limite_simultaneo_por_tipo=1,
+            categoria_id=categoria_id
+        )
+
+        servicio.configurar(dto)
+
+        dto.duracion_maxima = 12
+        servicio.configurar(dto)
+
+        self.assertEqual(
+            PoliticaPrestamo.objects.filter(
+                categoria_id=categoria_id,
+                tipo_usuario="ALUMNO"
+            ).count(),
+            1
+        )
+
+        politica = servicio.obtener_por_categoria(
+            categoria_id,
+            "ALUMNO"
+        )
+
+        self.assertEqual(politica.duracion_maxima, 12)

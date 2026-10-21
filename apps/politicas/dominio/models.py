@@ -8,6 +8,11 @@ from django.core.exceptions import ValidationError
 
 class PoliticaPrestamo(BaseModel):
     tipo_item = models.CharField(max_length=100)
+    categoria_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True
+    )
 
     tipo_usuario = models.CharField(
         max_length=20,
@@ -25,6 +30,12 @@ class PoliticaPrestamo(BaseModel):
         verbose_name = "política de préstamo"
         verbose_name_plural = "políticas de préstamo"
         unique_together = ("tipo_item", "tipo_usuario")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["categoria_id", "tipo_usuario"],
+                name="politica_unica_por_categoria_usuario"
+            )
+        ]
 
     def __str__(self):
         return f"{self.tipo_item} - {self.get_tipo_usuario_display()}"

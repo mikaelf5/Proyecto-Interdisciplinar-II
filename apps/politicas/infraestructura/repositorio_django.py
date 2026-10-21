@@ -13,3 +13,9 @@ class PoliticaRepositorioImpl(IPoliticaRepositorio):
     def guardar(self, politica):
         politica.save()
         return politica
+
+    def buscar_por_categoria(self, categoria_id, tipo_usuario):
+        return PoliticaPrestamo.objects.filter(
+            categoria_id=categoria_id,
+            tipo_usuario=tipo_usuario
+        ).first()

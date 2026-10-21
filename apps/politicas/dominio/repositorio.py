@@ -10,3 +10,7 @@ class IPoliticaRepositorio(ABC):
     @abstractmethod
     def guardar(self, politica):
         pass
+
+    @abstractmethod
+    def buscar_por_categoria(self, categoria_id, tipo_usuario):
+        pass
