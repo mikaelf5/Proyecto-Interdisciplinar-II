@@ -4,13 +4,15 @@ from .models import Reporte
 
 
 class ReporteForm(forms.ModelForm):
+    """Quién genera el reporte se toma de la sesión (no se pide)."""
+
     class Meta:
         model = Reporte
         fields = ["tipo", "periodo_inicio", "periodo_fin"]
         widgets = {
             "tipo": forms.Select(attrs={"class": "form-select"}),
-            "periodo_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
-            "periodo_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "periodo_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
+            "periodo_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         }
 
     def clean(self):

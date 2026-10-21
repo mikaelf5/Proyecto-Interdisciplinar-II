@@ -7,47 +7,13 @@
 <div class="card p-4" style="max-width: 640px;">
     <form method="post" novalidate>
         {% csrf_token %}
+        {{ form.non_field_errors }}
 
-        {% if form.errors %}
-        <div class="alert alert-danger">
-            <ul class="mb-0">
-                {% for field in form %}{% for error in field.errors %}
-                <li><strong>{{ field.label }}:</strong> {{ error }}</li>
-                {% endfor %}{% endfor %}
-                {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-
-        <div class="mb-3">
-            <label class="form-label">ID del préstamo (UUID)</label>
-            {{ form.prestamo_id }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">ID del solicitante (UUID)</label>
-            {{ form.solicitante_id }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Fecha</label>
-            {{ form.fecha }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Observaciones</label>
-            {{ form.observaciones }}
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">Costo estimado (opcional)</label>
-            {{ form.costo_estimado }}
-        </div>
-
-        <div class="form-check mb-3">
-            {{ form.cerrado }}
-            <label class="form-check-label">Caso cerrado</label>
-        </div>
+        {% include "includes/campo.html" with campo=form.prestamo_id etiqueta="Préstamo" %}
+        {% include "includes/campo.html" with campo=form.solicitante_id etiqueta="Solicitante" %}
+        {% include "includes/campo.html" with campo=form.fecha etiqueta="Fecha de la pérdida" %}
+        {% include "includes/campo.html" with campo=form.observaciones etiqueta="Observaciones" %}
+        {% include "includes/campo.html" with campo=form.costo_estimado etiqueta="Costo estimado (S/)" %}
 
         <button type="submit" class="btn btn-primary">Guardar</button>
         <a href="{% url 'perdidas:lista' %}" class="btn btn-link">Cancelar</a>
