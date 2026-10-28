@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ item.codigo }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'catalogo:buscar' %}" class="btn btn-link px-0 mb-2">← Volver al catálogo</a>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card card-body">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h1 class="h4 mb-1">{{ item.nombre }}</h1>
+                    <div class="text-muted"><code>{{ item.codigo }}</code> · {{ item.categoria_nombre }}
+                        {% if item.categoria_es_especial %}<span class="badge bg-warning text-dark">Requiere supervisor</span>{% endif %}
+                    </div>
+                </div>
+                <span class="badge {% if item.esta_disponible %}bg-success{% else %}bg-secondary{% endif %} fs-6">{{ item.estado_display }}</span>
+            </div>
+
+            {% if item.motivo_fuera_servicio %}
+                <div class="alert alert-warning mt-3 mb-0">Motivo: {{ item.motivo_fuera_servicio }}</div>
+            {% endif %}
+
+            <h2 class="h6 mt-4">Atributos</h2>
+            <dl class="row mb-0">
+                {% for clave, valor in item.atributos.items %}
+                    <dt class="col-sm-4 text-capitalize">{{ clave }}</dt><dd class="col-sm-8">{{ valor }}</dd>
+                {% empty %}
+                    <dd class="text-muted">Sin atributos.</dd>
+                {% endfor %}
+            </dl>
+        </div>
+
+        {% if user.is_staff %}
+        <div class="card card-body mt-3">
+            <h2 class="h6">Acciones del encargado</h2>
+            <div class="d-flex flex-wrap gap-2">
+                <form method="post" action="{% url 'catalogo:poner_disponible' item.id %}">{% csrf_token %}
+                    <button class="btn btn-outline-success btn-sm">Poner disponible</button>
+                </form>
+                <form method="post" action="{% url 'catalogo:marcar_daniado' item.id %}" class="d-flex gap-1">{% csrf_token %}
+                    <input name="motivo" class="form-control form-control-sm" placeholder="Motivo del daño">
+                    <button class="btn btn-outline-warning btn-sm text-nowrap">Marcar dañado</button>
+                </form>
+                <form method="post" action="{% url 'catalogo:dar_de_baja' item.id %}" class="d-flex gap-1">{% csrf_token %}
+                    <input name="motivo" class="form-control form-control-sm" placeholder="Motivo de la baja">
+                    <button class="btn btn-outline-danger btn-sm text-nowrap">Dar de baja</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h6 mb-0">Lista de espera</h2>
+                <a href="{% url 'reservas:lista_espera' item.id %}" class="small">Ver cola</a>
+            </div>
+            <p class="text-muted small mb-2">{{ cola|length }} persona(s) en cola.</p>
+            {% if not item.esta_disponible and item.estado != "BAJA" %}
+                <form method="post" action="{% url 'reservas:crear' item.id %}">{% csrf_token %}
+                    <button class="btn btn-primary w-100">Reservar este ítem</button>
+                </form>
+            {% elif item.esta_disponible %}
+                <p class="small mb-0">El ítem está disponible: puede solicitarse directamente.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

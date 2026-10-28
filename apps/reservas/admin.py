@@ -1,14 +1,17 @@
+"""Presentación (panel admin): las acciones pasan por el servicio de aplicación."""
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
-from .models import Reserva
+from .aplicacion.servicios import ReservaServicioAplicacion
+from .dominio.models import Reserva
 
 
 def _aplicar(modeladmin, request, queryset, metodo, etiqueta):
+    servicio = ReservaServicioAplicacion()
     ok, errores = 0, 0
     for reserva in queryset:
         try:
-            getattr(reserva, metodo)()
+            getattr(servicio, metodo)(reserva.id)
             ok += 1
         except ValidationError:
             errores += 1
@@ -43,3 +46,9 @@ class ReservaAdmin(admin.ModelAdmin):
     search_fields = ("item_id", "solicitante_id")
     readonly_fields = ("id",)
     actions = [confirmar, expirar, cancelar]
+
+    def save_model(self, request, obj, form, change):
+        # Si no se indicó posición, la calcula el AsignadorDeCola (al final de la cola).
+        if obj.posicion_en_cola is None:
+            obj.posicion_en_cola = ReservaServicioAplicacion().siguiente_posicion(obj.item_id)
+        super().save_model(request, obj, form, change)

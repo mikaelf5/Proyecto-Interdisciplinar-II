@@ -6,6 +6,7 @@ from .models import PoliticaPrestamo
 @admin.register(PoliticaPrestamo)
 class PoliticaPrestamoAdmin(admin.ModelAdmin):
     list_display = (
+        "categoria_id",
         "tipo_item",
         "tipo_usuario",
         "duracion_maxima",
@@ -14,6 +15,15 @@ class PoliticaPrestamoAdmin(admin.ModelAdmin):
         "limite_simultaneo_por_tipo",
     )
 
-    list_filter = ("tipo_item", "tipo_usuario")
-    search_fields = ("tipo_item",)
-    readonly_fields = ("id", "creado_en", "actualizado_en")
+    list_filter = ("tipo_usuario",)
+
+    search_fields = (
+        "tipo_item",
+        "=categoria_id",
+    )
+
+    readonly_fields = (
+        "id",
+        "creado_en",
+        "actualizado_en",
+    )

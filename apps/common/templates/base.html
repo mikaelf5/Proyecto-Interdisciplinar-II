@@ -27,6 +27,29 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'perdidas:lista' %}">Pérdidas</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'reportes:lista' %}">Reportes</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'auditoria:lista' %}">Auditoría</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'catalogo:buscar' %}">Catálogo</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'reservas:mias' %}">Mis reservas</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'notificaciones:mias' %}">Notificaciones</a></li>
+
+                    {% if user.is_authenticated %}
+                        {% if user.is_superuser %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'identidad:cuentas' %}">Cuentas</a>
+                            </li>
+                        {% endif %}
+
+                        <li class="nav-item d-flex align-items-center ms-lg-3">
+                            <span class="navbar-text small me-2">{{ user.nombres }}</span>
+                            <form method="post" action="{% url 'identidad:logout' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-light">Cerrar sesión</button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'identidad:login' %}">Iniciar sesión</a>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

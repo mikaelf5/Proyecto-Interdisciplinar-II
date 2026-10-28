@@ -43,7 +43,7 @@
         </a>
     </div>
     <div class="col-md-6 col-lg-4">
-        <a href="{% url 'admin:app_list' app_label='catalogo' %}" class="card p-4 text-decoration-none text-dark h-100">
+         <a href="{% url 'catalogo:buscar' %}" class="card p-4 text-decoration-none text-dark h-100">
             <h3 class="h6">Catálogo e inventario</h3>
             <p class="mb-0 text-muted small">Categorías, ítems y condición física.</p>
         </a>
@@ -61,14 +61,14 @@
         </a>
     </div>
     <div class="col-md-6 col-lg-4">
-        <a href="{% url 'admin:app_list' app_label='reservas' %}" class="card p-4 text-decoration-none text-dark h-100">
+        <a href="{% url 'reservas:mias' %}" class="card p-4 text-decoration-none text-dark h-100">
             <h3 class="h6">Reservas</h3>
 
             <p class="mb-0 text-muted small">Reservas anticipadas y lista de espera.</p>
         </a>
     </div>
     <div class="col-md-6 col-lg-4">
-        <a href="{% url 'admin:app_list' app_label='notificaciones' %}" class="card p-4 text-decoration-none text-dark h-100">
+        <a href="{% url 'notificaciones:mias' %}" class="card p-4 text-decoration-none text-dark h-100">
             <h3 class="h6">Notificaciones</h3>
             <p class="mb-0 text-muted small">Avisos por correo a los usuarios.</p>
         </a>

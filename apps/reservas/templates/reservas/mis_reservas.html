@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Mis reservas{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Mis reservas</h1>
+<div class="card">
+    <table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th>Ítem</th><th>Posición</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+            {% for r in reservas %}
+            <tr>
+                <td><a href="{% url 'catalogo:detalle' r.item_id %}">Ver ítem</a></td>
+                <td>#{{ r.posicion_en_cola }}</td>
+                <td>{{ r.estado_display }}</td>
+                <td class="text-end">
+                    {% if r.estado == "ACTIVA" or r.estado == "CONFIRMADA" %}
+                    <form method="post" action="{% url 'reservas:cancelar' r.id %}">{% csrf_token %}
+                        <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No tienes reservas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
