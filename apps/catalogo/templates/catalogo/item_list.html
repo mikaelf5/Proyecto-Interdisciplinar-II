@@ -4,7 +4,12 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Catálogo</h1>
-    <span class="text-muted">{{ items|length }} ítem(s)</span>
+     <div class="d-flex align-items-center gap-3">
+        <span class="text-muted">{{ items|length }} ítem(s)</span>
+        {% if puede_registrar %}
+            <a href="{% url 'catalogo:registrar' %}" class="btn btn-primary">+ Nuevo ítem</a>
+        {% endif %}
+    </div>
 </div>
 
 <form method="get" class="card card-body mb-3">

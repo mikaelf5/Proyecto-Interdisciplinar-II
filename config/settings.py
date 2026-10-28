@@ -1,5 +1,5 @@
 """
-Configuración de desarrollo (proyecto temporal de Micaela).
+Configuración de desarrollo 
 Los datos de la base de datos se leen del archivo .env
 """
 import os

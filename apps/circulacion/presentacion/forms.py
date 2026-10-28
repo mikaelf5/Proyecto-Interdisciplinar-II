@@ -21,3 +21,9 @@ class SolicitudForm(forms.ModelForm):
             "fecha_fin": forms.DateInput(attrs={"type": "date"}),
             "finalidad": forms.Textarea(attrs={"rows": 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.initial.get("item_id"):
+            self.fields["item_id"].widget = forms.HiddenInput()
+            self.fields["categoria_id"].widget = forms.HiddenInput()

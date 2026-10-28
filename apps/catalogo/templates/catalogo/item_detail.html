@@ -63,7 +63,10 @@
                     <button class="btn btn-primary w-100">Reservar este ítem</button>
                 </form>
             {% elif item.esta_disponible %}
-                <p class="small mb-0">El ítem está disponible: puede solicitarse directamente.</p>
+                <p class="small mb-2">El ítem está disponible: puede solicitarse directamente.</p>
+                <a href="{% url 'circulacion:solicitud_nueva' %}?item={{ item.id }}" class="btn btn-success w-100">
+                    Solicitar préstamo
+                </a>
             {% endif %}
         </div>
     </div>

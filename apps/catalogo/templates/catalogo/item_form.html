@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Nuevo ítem{% endblock %}
+
+{% block content %}
+<a href="{% url 'catalogo:buscar' %}" class="btn btn-link px-0 mb-2">← Volver al catálogo</a>
+<h1 class="h3 mb-3">Registrar ítem</h1>
+
+{% if not hay_categorias %}
+    <div class="alert alert-warning">
+        Todavía no hay categorías. Crea una primero (por ejemplo con <code>python manage.py seed_catalogo</code>).
+    </div>
+{% else %}
+<form method="post" class="card card-body" style="max-width: 640px;">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+
+    {% include "includes/campo.html" with campo=form.codigo %}
+    {% include "includes/campo.html" with campo=form.categoria_id %}
+
+    {% for categoria, campos in form.grupos_atributos %}
+        <fieldset class="grupo-atributos border rounded p-3 mb-3" data-categoria="{{ categoria.id }}" hidden>
+            <legend class="h6 w-auto px-1">Atributos de {{ categoria.nombre }}</legend>
+            {% for campo in campos %}
+                {% include "includes/campo.html" with campo=campo %}
+            {% empty %}
+                <p class="text-muted small mb-0">Esta categoría no tiene atributos.</p>
+            {% endfor %}
+        </fieldset>
+    {% endfor %}
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary">Registrar ítem</button>
+        <a href="{% url 'catalogo:buscar' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+(function () {
+    var select = document.getElementById("{{ form.categoria_id.id_for_label }}");
+    function mostrar() {
+        document.querySelectorAll(".grupo-atributos").forEach(function (g) {
+            g.hidden = g.dataset.categoria !== select.value;
+        });
+    }
+    select.addEventListener("change", mostrar);
+    mostrar();
+})();
+</script>
+{% endif %}
+{% endblock %}

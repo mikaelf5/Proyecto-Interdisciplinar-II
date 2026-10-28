@@ -7,23 +7,42 @@ Las vistas solo:
     3. muestran el resultado o el error.
 Nunca usan Item.objects ni otros modelos directamente.
 """
+from functools import wraps
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.common.choices import EstadoItem
+from apps.common.choices import EstadoItem, RolSistema
 
-from ..aplicacion.dtos import FiltrosItem
+from ..aplicacion.dtos import FiltrosItem, NuevoItemDTO
 from ..aplicacion.servicios import CatalogoServicioAplicacion
-from .forms import FiltroItemForm
+from .forms import FiltroItemForm, ItemForm
 
 catalogo = CatalogoServicioAplicacion()
 
 # Solo el personal (encargados/admin) cambia el estado de los ítems.
 # Cuando Identidad tenga permisos por rol, se reemplaza por el rol ENCARGADO.
 solo_personal = user_passes_test(lambda u: u.is_staff)
+
+def es_administrador(usuario):
+    """Superusuario o cuenta con el rol ADMINISTRADOR (RF-B5)."""
+    return usuario.is_authenticated and (
+        usuario.is_superuser or usuario.tiene_rol(RolSistema.ADMINISTRADOR)
+    )
+
+
+def solo_admin(vista):
+    """Si la cuenta no es administradora responde 403 (no la manda al login)."""
+    @wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        if not es_administrador(request.user):
+            raise PermissionDenied("Solo el administrador puede registrar ítems.")
+        return vista(request, *args, **kwargs)
+    return envoltura
+
 
 
 def _errores(e):
@@ -42,8 +61,30 @@ def buscar(request):
     return render(request, "catalogo/item_list.html", {
         "form": form,
         "items": catalogo.buscar_items(filtros),
+        "puede_registrar": es_administrador(request.user),
     })
 
+
+@login_required
+@solo_admin
+def registrar(request):
+    """ItemController.registrar(request): el administrador sube un ítem nuevo."""
+    categorias = catalogo.listar_categorias()
+    form = ItemForm(request.POST or None, categorias=categorias)
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        dto = NuevoItemDTO(codigo=d["codigo"], categoria_id=d["categoria_id"],atributos=d["atributos"])
+        try:
+            item = catalogo.registrar_item(dto)
+        except ValidationError as e:
+            form.add_error(None, _errores(e))
+        else:
+            messages.success(request, f"Ítem {item.codigo} registrado.")
+            return redirect("catalogo:detalle", pk=item.id)
+    return render(request, "catalogo/item_form.html", {
+        "form": form,
+        "hay_categorias": bool(categorias),
+    })
 
 @login_required
 def detalle(request, pk):

@@ -8,7 +8,7 @@ Agregados:
 
 Reglas de capa:
 - Aquí solo van las reglas del negocio (invariantes). Los métodos cambian
-  el estado del agregado pero NO guardan: guardar es tarea del repositorio
+  el estado del agregado pBaseModeero NO guardan: guardar es tarea del repositorio
   (capa de infraestructura), y lo coordina el servicio de aplicación.
 - Dentro del contexto (Item → Categoria, CondicionFisica → Item): ForeignKey.
 - Hacia otros contextos (Préstamo, Personal): UUID sin FK.

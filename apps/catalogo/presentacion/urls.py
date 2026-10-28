@@ -6,6 +6,7 @@ app_name = "catalogo"
 
 urlpatterns = [
     path("", views.buscar, name="buscar"),
+    path("nuevo/", views.registrar, name="registrar"),
     path("<uuid:pk>/", views.detalle, name="detalle"),
     path("<uuid:pk>/disponible/", views.poner_disponible, name="poner_disponible"),
     path("<uuid:pk>/daniado/", views.marcar_daniado, name="marcar_daniado"),
