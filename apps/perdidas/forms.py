@@ -8,6 +8,10 @@ from .models import CasoPerdida
 class CasoPerdidaForm(forms.ModelForm):
     """Un caso nuevo siempre empieza abierto; se cierra con el botón "Cerrar caso"."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["solicitante_id"].required = False
+
     class Meta:
         model = CasoPerdida
         fields = ["prestamo_id", "solicitante_id", "fecha", "observaciones", "costo_estimado"]
@@ -20,7 +24,7 @@ class CasoPerdidaForm(forms.ModelForm):
         }
         help_texts = {
             "prestamo_id": "ID (UUID) del préstamo en el que se perdió el ítem.",
-            "solicitante_id": "ID (UUID) del solicitante responsable.",
+            "solicitante_id": "Opcional: se toma del préstamo. Si lo escribes, debe coincidir.",
             "costo_estimado": "Opcional y solo informativo: el sistema no gestiona pagos.",
         }
 

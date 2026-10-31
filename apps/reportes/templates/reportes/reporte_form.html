@@ -14,9 +14,9 @@
         {% include "includes/campo.html" with campo=form.periodo_fin etiqueta="Hasta" %}
 
         <p class="text-muted small">
-            Disponibles ahora: sanciones por periodo e ítems perdidos o dañados.
-            Los reportes basados en préstamos (más prestados, usuarios más activos, tasa de devolución a tiempo)
-            se habilitarán al integrar el módulo de Circulación.
+            Los reportes de préstamos (más prestados, usuarios más activos, tasa de devolución a tiempo)
+            cuentan los préstamos <strong>entregados</strong> dentro del periodo. Los datos se calculan
+            al abrir el reporte, con la información actual.
         </p>
 
         <button type="submit" class="btn btn-primary">{% if object %}Guardar{% else %}Generar{% endif %}</button>

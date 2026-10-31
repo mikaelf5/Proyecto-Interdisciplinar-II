@@ -1,10 +1,13 @@
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
+from apps.common.choices import RolSistema
+from apps.identidad.presentacion.permisos import RolRequeridoMixin
 from apps.auditoria.utils import actor_id_de
 
 from .dominio.datos import ReporteNoDisponible
@@ -12,6 +15,13 @@ from .dominio.exportador import FORMATOS
 from .fabrica import reporte_servicio
 from .forms import ReporteForm
 from .models import Reporte
+
+
+class _SoloAdministrador(RolRequeridoMixin):
+    """Solo el personal autorizado puede entrar (RF-B5, RNF-1)."""
+
+    roles_permitidos = [RolSistema.ADMINISTRADOR]
+
 
 
 class _ObtenerPorServicio:
@@ -22,7 +32,7 @@ class _ObtenerPorServicio:
         return reporte
 
 
-class ReporteListView(LoginRequiredMixin, ListView):
+class ReporteListView(_SoloAdministrador, ListView):
     model = Reporte
     template_name = "reportes/reporte_list.html"
     context_object_name = "reportes"
@@ -39,7 +49,7 @@ class ReporteListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ReporteCreateView(LoginRequiredMixin, CreateView):
+class ReporteCreateView(_SoloAdministrador, CreateView):
     model = Reporte
     form_class = ReporteForm
     template_name = "reportes/reporte_form.html"
@@ -55,7 +65,7 @@ class ReporteCreateView(LoginRequiredMixin, CreateView):
         return reverse("reportes:detalle", args=[self.object.pk])
 
 
-class ReporteUpdateView(LoginRequiredMixin, _ObtenerPorServicio, UpdateView):
+class ReporteUpdateView(_SoloAdministrador, _ObtenerPorServicio, UpdateView):
     model = Reporte
     form_class = ReporteForm
     template_name = "reportes/reporte_form.html"
@@ -68,7 +78,7 @@ class ReporteUpdateView(LoginRequiredMixin, _ObtenerPorServicio, UpdateView):
         return reverse("reportes:detalle", args=[self.object.pk])
 
 
-class ReporteDetailView(LoginRequiredMixin, _ObtenerPorServicio, DetailView):
+class ReporteDetailView(_SoloAdministrador, _ObtenerPorServicio, DetailView):
     model = Reporte
     template_name = "reportes/reporte_detail.html"
 
@@ -81,7 +91,7 @@ class ReporteDetailView(LoginRequiredMixin, _ObtenerPorServicio, DetailView):
         return ctx
 
 
-class ReporteDeleteView(LoginRequiredMixin, _ObtenerPorServicio, DeleteView):
+class ReporteDeleteView(_SoloAdministrador, _ObtenerPorServicio, DeleteView):
     model = Reporte
     template_name = "reportes/reporte_confirm_delete.html"
     success_url = reverse_lazy("reportes:lista")
@@ -94,7 +104,10 @@ class ReporteDeleteView(LoginRequiredMixin, _ObtenerPorServicio, DeleteView):
 def exportar_reporte(request, pk, formato):
     """Descarga el reporte en Excel o PDF."""
     if not request.user.is_authenticated:
-        return redirect(f"/admin/login/?next={request.path}")
+        return redirect_to_login(request.get_full_path())
+    if not (request.user.is_superuser
+            or request.user.tiene_algun_rol(*_SoloAdministrador.roles_permitidos)):
+        raise PermissionDenied
     if formato not in FORMATOS:
         raise Http404("Formato no soportado")
     servicio = reporte_servicio()

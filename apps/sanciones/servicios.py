@@ -1,5 +1,9 @@
-"""Reglas de presentación de las sanciones (no modifican la base de datos)."""
-from datetime import date, timedelta
+"""Estados de presentación de las sanciones (no modifican la base de datos).
+
+Usa las reglas del dominio (`Sancion.fecha_fin()` y `Sancion.esta_vigente()`), para que
+la lista, los reportes y `tiene_sancion_activa()` siempre digan lo mismo.
+"""
+from datetime import date
 
 VIGENTE = "vigente"
 CUMPLIDA = "cumplida"
@@ -13,9 +17,8 @@ ESTADOS = [
 
 
 def fecha_fin(sancion):
-    """Último día de la sanción, o None si no tiene duración (ej. baneo)."""
+    """Último día de la sanción (inclusive), o None si no tiene plazo (ej. baneo)."""
     return sancion.fecha_fin()
-
 
 
 def estado_de(sancion, hoy=None):
@@ -23,14 +26,11 @@ def estado_de(sancion, hoy=None):
     hoy = hoy or date.today()
     if not sancion.activa:
         return LEVANTADA
-    fin = fecha_fin(sancion)
-    if fin is not None and hoy > fin:
-        return CUMPLIDA
-    return VIGENTE
+    return VIGENTE if sancion.esta_vigente(hoy) else CUMPLIDA
 
 
 def con_estado(sanciones, hoy=None):
-    """Agrega .estado y .fecha_fin a cada sanción (atributos solo en memoria)."""
+    """Agrega .estado y .fin a cada sanción (atributos solo en memoria)."""
     hoy = hoy or date.today()
     resultado = list(sanciones)
     for s in resultado:

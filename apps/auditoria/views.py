@@ -1,11 +1,19 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.dateparse import parse_date
 from django.views.generic import ListView
 
+from apps.common.choices import RolSistema
+from apps.identidad.presentacion.permisos import RolRequeridoMixin
 from .models import RegistroAuditoria, TipoAccion
 
 
-class RegistroAuditoriaListView(LoginRequiredMixin, ListView):
+class _SoloAdministrador(RolRequeridoMixin):
+    """Solo el personal autorizado puede entrar (RF-B5, RNF-1)."""
+
+    roles_permitidos = [RolSistema.ADMINISTRADOR]
+
+
+
+class RegistroAuditoriaListView(_SoloAdministrador, ListView):
     """Solo lectura. Filtros: acción, entidad, actor (ID) y rango de fechas."""
 
     model = RegistroAuditoria

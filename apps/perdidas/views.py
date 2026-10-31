@@ -1,18 +1,27 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
+from apps.common.choices import RolSistema
+from apps.identidad.presentacion.permisos import RolRequeridoMixin
 from apps.auditoria.utils import actor_id_de
 
 from .fabrica import caso_perdida_servicio
 from .forms import CasoPerdidaForm
 from .models import CasoPerdida
+
+
+class _SoloPersonal(RolRequeridoMixin):
+    """Solo el personal autorizado puede entrar (RF-B5, RNF-1)."""
+
+    roles_permitidos = [RolSistema.ENCARGADO, RolSistema.ADMINISTRADOR]
+
 
 
 class _ObtenerPorServicio:
@@ -25,7 +34,7 @@ class _ObtenerPorServicio:
         return caso
 
 
-class CasoPerdidaListView(LoginRequiredMixin, ListView):
+class CasoPerdidaListView(_SoloPersonal, ListView):
     model = CasoPerdida
     template_name = "perdidas/caso_list.html"
     context_object_name = "casos"
@@ -46,7 +55,7 @@ class CasoPerdidaListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CasoPerdidaCreateView(LoginRequiredMixin, CreateView):
+class CasoPerdidaCreateView(_SoloPersonal, CreateView):
     model = CasoPerdida
     form_class = CasoPerdidaForm
     template_name = "perdidas/caso_form.html"
@@ -58,17 +67,22 @@ class CasoPerdidaCreateView(LoginRequiredMixin, CreateView):
         return initial
 
     def form_valid(self, form):
-        self.object = caso_perdida_servicio().registrar(
-            form.save(commit=False), actor_id_de(self.request)
-        )
+        try:
+            self.object = caso_perdida_servicio().registrar(
+                form.save(commit=False), actor_id_de(self.request)
+            )
+        except ValidationError as error:
+            form.add_error(None, error)   # ej. "El préstamo no está abierto."
+            return self.form_invalid(form)
         messages.success(
             self.request,
-            "Caso de pérdida registrado. Puedes aplicar una sanción desde la lista.",
+            "Pérdida registrada: el préstamo quedó cerrado y el ítem dado de baja. "
+            "Puedes aplicar una sanción desde la lista.",
         )
         return HttpResponseRedirect(self.get_success_url())
 
 
-class CasoPerdidaUpdateView(LoginRequiredMixin, _ObtenerPorServicio, UpdateView):
+class CasoPerdidaUpdateView(_SoloPersonal, _ObtenerPorServicio, UpdateView):
     model = CasoPerdida
     form_class = CasoPerdidaForm
     template_name = "perdidas/caso_form.html"
@@ -80,7 +94,7 @@ class CasoPerdidaUpdateView(LoginRequiredMixin, _ObtenerPorServicio, UpdateView)
         return HttpResponseRedirect(self.get_success_url())
 
 
-class CasoPerdidaCerrarView(LoginRequiredMixin, View):
+class CasoPerdidaCerrarView(_SoloPersonal, View):
     def post(self, request, pk):
         servicio = caso_perdida_servicio()
         caso = servicio.obtener(pk)
@@ -93,7 +107,7 @@ class CasoPerdidaCerrarView(LoginRequiredMixin, View):
         return redirect("perdidas:lista")
 
 
-class CasoPerdidaDeleteView(LoginRequiredMixin, _ObtenerPorServicio, DeleteView):
+class CasoPerdidaDeleteView(_SoloPersonal, _ObtenerPorServicio, DeleteView):
     model = CasoPerdida
     template_name = "perdidas/caso_confirm_delete.html"
     success_url = reverse_lazy("perdidas:lista")

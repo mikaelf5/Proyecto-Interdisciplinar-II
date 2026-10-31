@@ -1,13 +1,14 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
+from apps.common.choices import RolSistema
+from apps.identidad.presentacion.permisos import RolRequeridoMixin
 from apps.auditoria.models import TipoAccion
 from apps.auditoria.utils import actor_id_de, auditar
 
@@ -16,7 +17,14 @@ from .models import Sancion, TipoSancion
 from .servicios import ESTADOS, LEVANTADA, VIGENTE, con_estado
 
 
-class SancionListView(LoginRequiredMixin, ListView):
+class _SoloPersonal(RolRequeridoMixin):
+    """Solo el personal autorizado puede entrar (RF-B5, RNF-1)."""
+
+    roles_permitidos = [RolSistema.ENCARGADO, RolSistema.ADMINISTRADOR]
+
+
+
+class SancionListView(_SoloPersonal, ListView):
     """Lista con filtros por tipo, estado y búsqueda (solicitante o motivo)."""
 
     model = Sancion
@@ -50,7 +58,7 @@ class SancionListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SancionHistorialView(LoginRequiredMixin, ListView):
+class SancionHistorialView(_SoloPersonal, ListView):
     """Todas las sanciones de un solicitante (RF-G1)."""
 
     template_name = "sanciones/sancion_historial.html"
@@ -71,7 +79,7 @@ class SancionHistorialView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SancionCreateView(LoginRequiredMixin, CreateView):
+class SancionCreateView(_SoloPersonal, CreateView):
     model = Sancion
     form_class = SancionForm
     template_name = "sanciones/sancion_form.html"
@@ -100,7 +108,7 @@ class SancionCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class SancionUpdateView(LoginRequiredMixin, UpdateView):
+class SancionUpdateView(_SoloPersonal, UpdateView):
     model = Sancion
     form_class = SancionForm
     template_name = "sanciones/sancion_form.html"
@@ -116,7 +124,7 @@ class SancionUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class SancionLevantarView(LoginRequiredMixin, View):
+class SancionLevantarView(_SoloPersonal, View):
     """Cierra una sanción activa; exige motivo (RF-J1) y lo audita."""
 
     template_name = "sanciones/sancion_levantar.html"
@@ -144,7 +152,7 @@ class SancionLevantarView(LoginRequiredMixin, View):
         return redirect("sanciones:lista")
 
 
-class SancionDeleteView(LoginRequiredMixin, DeleteView):
+class SancionDeleteView(_SoloPersonal, DeleteView):
     model = Sancion
     template_name = "sanciones/sancion_confirm_delete.html"
     success_url = reverse_lazy("sanciones:lista")

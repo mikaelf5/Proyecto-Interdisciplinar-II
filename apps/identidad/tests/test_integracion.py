@@ -74,7 +74,7 @@ class AuthControllerTests(TestCase):
     def test_solicitante_sin_is_staff_tambien_entra(self):
         self.assertFalse(self.cuenta.is_staff)
         self.client.post(reverse("identidad:login"), {"correo": "ana@unsa.edu.pe", "password": "secreta123"})
-        self.assertEqual(self.client.get(reverse("sanciones:lista")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("catalogo:buscar")).status_code, 200)
 
     def test_vista_protegida_redirige_al_login_propio(self):
         respuesta = self.client.get(reverse("sanciones:lista"))
