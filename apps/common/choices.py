@@ -3,10 +3,15 @@ from django.db import models
 
 
 class EstadoReserva(models.TextChoices):
-    ACTIVA = "ACTIVA", "Activa"
+    ACTIVA = "ACTIVA", "Activa (en lista de espera)"
+    EN_ESPERA_SUPERVISOR = "EN_ESPERA_SUPERVISOR", "En espera de supervisor"
     CONFIRMADA = "CONFIRMADA", "Confirmada"
+    ATENDIDA = "ATENDIDA", "Atendida (ítem entregado)"
+    FINALIZADA = "FINALIZADA", "Finalizada (ítem devuelto)"
     EXPIRADA = "EXPIRADA", "Expirada"
     CANCELADA = "CANCELADA", "Cancelada"
+    RECHAZADA = "RECHAZADA", "Rechazada por supervisor"
+    ANULADA = "ANULADA", "Anulada por encargado"
 
 
 class TipoNotificacion(models.TextChoices):

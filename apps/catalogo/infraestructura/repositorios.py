@@ -43,7 +43,7 @@ class ItemRepositorioImpl(IItemRepositorio):
         return Item.objects.select_related("categoria").filter(codigo=codigo).first()
 
     def buscar(self, filtros):
-        """filtros: FiltrosItem (texto, categoria_id, estado, solo_disponibles)."""
+        """Búsqueda del catálogo. filtros: FiltrosItem(texto, categoria_id, estado)."""
         qs = Item.objects.select_related("categoria")
         if filtros.texto:
             # Busca en el código y dentro de los atributos dinámicos (JSONB)
@@ -64,4 +64,4 @@ class CondicionFisicaRepositorioImpl(ICondicionFisicaRepositorio):
         condicion.save()
 
     def de_item(self, item_id):
-        return list(CondicionFisica.objects.filter(item_id=item_id))
+        return list(CondicionFisica.objects.filter(item_id=item_id).order_by("-fecha", "-creado_en"))

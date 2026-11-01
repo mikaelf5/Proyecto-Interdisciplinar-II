@@ -6,6 +6,7 @@ En desarrollo conviene que settings tenga:
 así los correos se imprimen en la consola de runserver en vez de enviarse.
 """
 import logging
+from smtplib import SMTPException
 
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -25,8 +26,7 @@ class EmisorCorreoSMTP(IEmisorNotificacion):
     }
 
     def _correo_de(self, destinatario_id):
-        # El destinatario es una Cuenta (AUTH_USER_MODEL). Se usa la API pública de
-        # Django get_user_model() para no importar los modelos del contexto Identidad.
+        """Correo de la Cuenta destinataria (API pública de Django, sin entrar a Identidad)."""
         cuenta = get_user_model().objects.filter(pk=destinatario_id).first()
         return getattr(cuenta, "correo", None)
 
@@ -43,6 +43,6 @@ class EmisorCorreoSMTP(IEmisorNotificacion):
                 recipient_list=[correo],
             )
             return True
-        except Exception as e:  # sin servidor SMTP: queda registrada pero sin enviar
-            log.warning("No se pudo enviar la notificación %s por correo: %s", notificacion.id, e)
+        except (SMTPException, OSError) as error:  # sin servidor de correo: queda guardada sin enviar
+            log.warning("No se pudo enviar la notificación %s por correo: %s", notificacion.id, error)
             return False

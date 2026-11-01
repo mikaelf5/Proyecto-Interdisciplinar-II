@@ -55,6 +55,26 @@ class ItemDTO:
 
 
 @dataclass(frozen=True)
+class CondicionDTO:
+    """Un registro del historial de condición física (RF-A5)."""
+    id: UUID
+    item_id: UUID
+    prestamo_id: UUID
+    responsable_id: UUID
+    momento: str
+    momento_display: str
+    fecha: date
+    descripcion: str
+    foto: str
+
+    @classmethod
+    def desde(cls, c):
+        return cls(id=c.id, item_id=c.item_id, prestamo_id=c.prestamo_id, responsable_id=c.responsable_id,
+                   momento=c.momento, momento_display=c.get_momento_display(), fecha=c.fecha,
+                   descripcion=c.descripcion, foto=c.foto)
+
+
+@dataclass(frozen=True)
 class FiltrosItem:
     texto: str = ""
     categoria_id: Optional[UUID] = None

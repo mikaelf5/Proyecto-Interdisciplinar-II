@@ -8,7 +8,7 @@ Agregados:
 
 Reglas de capa:
 - Aquí solo van las reglas del negocio (invariantes). Los métodos cambian
-  el estado del agregado pBaseModeero NO guardan: guardar es tarea del repositorio
+  el estado del agregado pero NO guardan: guardar es tarea del repositorio
   (capa de infraestructura), y lo coordina el servicio de aplicación.
 - Dentro del contexto (Item → Categoria, CondicionFisica → Item): ForeignKey.
 - Hacia otros contextos (Préstamo, Personal): UUID sin FK.
@@ -79,7 +79,7 @@ class Item(BaseModel):
         if self.categoria_id:
             validar_atributos(self.atributos, self.categoria.definicion_atributos)
 
-    # ---------- Reglas del dominio (no guardan; guarda el repositorio) ----------
+    # Reglas del dominio: cambian el estado en memoria; guarda el repositorio.
     def cambiar_estado(self, nuevo, motivo=""):
         """Cambia el estado solo si la transición está permitida."""
         if nuevo not in self.TRANSICIONES[self.estado]:

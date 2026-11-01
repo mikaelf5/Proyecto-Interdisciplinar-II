@@ -31,7 +31,7 @@
             </dl>
         </div>
 
-        {% if user.is_staff %}
+        {% if puede_gestionar %}
         <div class="card card-body mt-3">
             <h2 class="h6">Acciones del encargado</h2>
             <div class="d-flex flex-wrap gap-2">
@@ -49,24 +49,57 @@
             </div>
         </div>
         {% endif %}
+
+        <div class="card mt-3">
+            <div class="card-header bg-white"><strong>Historial de condición física</strong></div>
+            <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light"><tr><th>Fecha</th><th>Momento</th><th>Descripción</th><th>Responsable</th></tr></thead>
+                <tbody>
+                {% for h, responsable in historial %}
+                    <tr>
+                        <td class="text-nowrap">{{ h.fecha|date:"d/m/Y" }}</td>
+                        <td><span class="badge {% if h.momento == 'ENTREGA' %}bg-primary{% else %}bg-dark{% endif %}">{{ h.momento_display }}</span></td>
+                        <td>{{ h.descripcion }}{% if h.foto %} · <a href="{{ h.foto }}" target="_blank" rel="noopener">foto</a>{% endif %}</td>
+                        <td>{{ responsable }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">Aún no tiene entregas ni devoluciones registradas.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
     </div>
 
     <div class="col-lg-5">
         <div class="card card-body">
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="h6 mb-0">Lista de espera</h2>
-                <a href="{% url 'reservas:lista_espera' item.id %}" class="small">Ver cola</a>
+                <h2 class="h6 mb-0">Hoy, {{ hoy|date:"d/m/Y" }}</h2>
+                <a href="{% url 'reservas:agenda' item.id %}" class="small">Ver agenda</a>
             </div>
-            <p class="text-muted small mb-2">{{ cola|length }} persona(s) en cola.</p>
-            {% if not item.esta_disponible and item.estado != "BAJA" %}
-                <form method="post" action="{% url 'reservas:crear' item.id %}">{% csrf_token %}
-                    <button class="btn btn-primary w-100">Reservar este ítem</button>
-                </form>
-            {% elif item.esta_disponible %}
-                <p class="small mb-2">El ítem está disponible: puede solicitarse directamente.</p>
-                <a href="{% url 'circulacion:solicitud_nueva' %}?item={{ item.id }}" class="btn btn-success w-100">
-                    Solicitar préstamo
-                </a>
+            {% if not agenda.atiende %}
+                <p class="text-muted small mb-2">Hoy no hay atención.</p>
+            {% else %}
+                <div class="small text-muted mt-2">Reservado:</div>
+                <div>
+                {% for r in agenda.ocupadas %}
+                    <span class="badge text-bg-secondary">{{ r.hora_inicio|time:"H:i" }}–{{ r.hora_fin|time:"H:i" }}</span>
+                {% empty %}<span class="small">Nada.</span>{% endfor %}
+                </div>
+                <div class="small text-muted mt-2">Libre:</div>
+                <div>
+                {% for desde, hasta in agenda.libres %}
+                    <span class="badge text-bg-success">{{ desde|time:"H:i" }}–{{ hasta|time:"H:i" }}</span>
+                {% empty %}<span class="small">Sin horarios libres.</span>{% endfor %}
+                </div>
+            {% endif %}
+
+            {% if fuera_de_servicio %}
+                <p class="small text-danger mt-3 mb-0">Este ítem está fuera de servicio y no se puede reservar.</p>
+            {% elif puede_reservar %}
+                <a href="{% url 'reservas:reservar' item.id %}" class="btn btn-primary w-100 mt-3">Reservar este ítem</a>
+                <p class="small text-muted mt-2 mb-0">Puedes reservar para hoy o con anticipación, por un rango de horas del mismo día.</p>
             {% endif %}
         </div>
     </div>

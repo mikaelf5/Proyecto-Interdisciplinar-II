@@ -26,13 +26,16 @@ from ..infraestructura.repositorios import (
     CondicionFisicaRepositorioImpl,
     ItemRepositorioImpl,
 )
-from .dtos import CategoriaDTO, FiltrosItem, ItemDTO
+from .dtos import CategoriaDTO, CondicionDTO, FiltrosItem, ItemDTO
 
 
 class ICatalogoServicio(ABC):
     
     @abstractmethod
     def crear_categoria(self, nombre, es_especial=False, definicion_atributos=None): ...
+
+    @abstractmethod
+    def listar_categorias(self): ...
 
     @abstractmethod
     def registrar_item(self, dto): ...
@@ -57,7 +60,7 @@ class ICatalogoServicio(ABC):
     @abstractmethod
     def buscar_items(self, filtros=None): ...
 
-    # --- consultas que necesitan otros contextos (Circulación, Reservas) ---
+    # Consultas que usan otros módulos (Circulación, Reservas)
     @abstractmethod
     def obtener_item(self, item_id): ...
 
@@ -67,6 +70,9 @@ class ICatalogoServicio(ABC):
     @abstractmethod
     def esta_disponible(self, item_id): ...
 
+    @abstractmethod
+    def historial_condicion(self, item_id): ...
+
 
 class CatalogoServicioAplicacion(ICatalogoServicio):
     def __init__(self, items=None, categorias=None, condiciones=None):
@@ -75,7 +81,7 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
         self.categorias = categorias or CategoriaRepositorioImpl()
         self.condiciones = condiciones or CondicionFisicaRepositorioImpl()
 
-    # ---------- Categorías ----------
+    # Categorías
     @transaction.atomic
     def crear_categoria(self, nombre, es_especial=False, definicion_atributos=None):
         categoria = Categoria(
@@ -86,11 +92,13 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
         return CategoriaDTO.desde(categoria)
 
     def listar_categorias(self):
+        """Desplegable de categorías (buscador y "Registrar ítem")."""
         return [CategoriaDTO.desde(c) for c in self.categorias.todas()]
 
-    # ---------- Ítems ----------
+    # Ítems
     @transaction.atomic
     def registrar_item(self, dto):
+        """Botón "Registrar" de la pantalla Registrar ítem (RF-A2, RF-A3: código único)."""
         if self.items.buscar_por_codigo(dto.codigo):
             raise ValidationError(f"Ya existe un ítem con el código {dto.codigo}.")
         categoria = self.categorias.buscar_por_id(dto.categoria_id)
@@ -138,9 +146,10 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
         return condicion.id
 
     def buscar_items(self, filtros=None):
+        """Botón "Buscar" del catálogo."""
         return [ItemDTO.desde(i) for i in self.items.buscar(filtros or FiltrosItem())]
 
-    # ---------- Consultas para otros contextos ----------
+    # Consultas para otros módulos
     def obtener_item(self, item_id):
         return ItemDTO.desde(self.items.buscar_por_id(item_id))
 
@@ -154,3 +163,7 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
 
     def esta_disponible(self, item_id):
         return self.items.buscar_por_id(item_id).esta_disponible
+
+    def historial_condicion(self, item_id):
+        """Historial de condición física del ítem, del más reciente al más antiguo (RF-A5)."""
+        return [CondicionDTO.desde(c) for c in self.condiciones.de_item(item_id)]

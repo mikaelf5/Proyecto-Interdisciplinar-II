@@ -22,99 +22,89 @@ class FiltroItemForm(forms.Form):
         self.fields["categoria_id"].choices = [("", "Todas")] + [(str(c.id), c.nombre) for c in categorias]
 
 
-def _nombre_campo(categoria_id, atributo):
-    """Nombre del campo HTML de un atributo dinámico de una categoría."""
-    return f"attr__{categoria_id}__{atributo}"
+
+CONTROL = {"class": "form-control"}
 
 
-def _campo_para(nombre, regla):
-    """Crea el campo de formulario que corresponde al tipo del atributo."""
-    tipo = regla.get("tipo", "texto")
-    requerido = bool(regla.get("requerido", False))
-    etiqueta = nombre.replace("_", " ").capitalize() + (" *" if requerido else "")
-    # required=False: la obligatoriedad se revisa solo para la categoría elegida.
-    comun = {"required": False, "label": etiqueta}
-    if tipo == "entero":
-        return forms.IntegerField(widget=forms.NumberInput(attrs={"class": "form-control"}), **comun)
-    if tipo == "numero":
-        return forms.FloatField(widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}), **comun)
-    if tipo == "booleano":
-        return forms.BooleanField(widget=forms.CheckboxInput(attrs={"class": "form-check-input"}), **comun)
-    if tipo == "fecha":
-        return forms.DateField(widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}), **comun)
-    if tipo == "opcion":
-        opciones = [("", "— Elige —")] + [(o, o) for o in regla.get("opciones", [])]
-        return forms.ChoiceField(choices=opciones, widget=forms.Select(attrs={"class": "form-select"}), **comun)
-    return forms.CharField(max_length=255, widget=forms.TextInput(attrs={"class": "form-control"}), **comun)
+def _campo_texto(etiqueta, requerido, regla):
+    return forms.CharField(label=etiqueta, required=requerido, max_length=200,
+                           widget=forms.TextInput(attrs=CONTROL))
 
 
-class ItemForm(forms.Form):
-    """Formulario para registrar un ítem nuevo.
+def _campo_entero(etiqueta, requerido, regla):
+    return forms.IntegerField(label=etiqueta, required=requerido, widget=forms.NumberInput(attrs=CONTROL))
 
-    Además de código y categoría, crea un campo por cada atributo definido en
-    cada categoría (Categoria.definicion_atributos). En la página solo se
-    muestran los de la categoría elegida, y al validar solo se toman esos.
+
+def _campo_numero(etiqueta, requerido, regla):
+    return forms.FloatField(label=etiqueta, required=requerido, widget=forms.NumberInput(attrs=CONTROL))
+
+
+def _campo_booleano(etiqueta, requerido, regla):
+    return forms.BooleanField(label=etiqueta, required=False,
+                              widget=forms.CheckboxInput(attrs={"class": "form-check-input"}))
+
+
+def _campo_fecha(etiqueta, requerido, regla):
+    return forms.DateField(label=etiqueta, required=requerido,
+                           widget=forms.DateInput(attrs={**CONTROL, "type": "date"}))
+
+
+def _campo_opcion(etiqueta, requerido, regla):
+    opciones = [("", "— Elige —")] + [(opcion, opcion) for opcion in regla.get("opciones", [])]
+    return forms.ChoiceField(label=etiqueta, required=requerido, choices=opciones,
+                             widget=forms.Select(attrs={"class": "form-select"}))
+
+
+class ItemNuevoForm(forms.Form):
     """
+    Registro de un ítem (RF-A2). Los campos de atributos se ARMAN SOLOS según la
+    definición de la categoría elegida (RNF-9: sin tocar código al crear categorías).
+
+        definicion_atributos = {"autor": {"tipo": "texto", "requerido": true}, ...}
+        → aparece un campo "Autor" obligatorio de texto.
+    """
+    PREFIJO = "attr_"
+    CAMPOS_POR_TIPO = {
+        "texto": _campo_texto,
+        "entero": _campo_entero,
+        "numero": _campo_numero,
+        "booleano": _campo_booleano,
+        "fecha": _campo_fecha,
+        "opcion": _campo_opcion,
+    }
+
     codigo = forms.CharField(
-        max_length=50, label="Código",
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej. LIB-005"}),
-    )
-    categoria_id = forms.ChoiceField(
-        label="Categoría", widget=forms.Select(attrs={"class": "form-select"}),
+        label="Código", max_length=50,
+        widget=forms.TextInput(attrs={**CONTROL, "placeholder": "Ej.: LIB-005"}),
     )
 
-    def __init__(self, *args, categorias=(), **kwargs):
+    def __init__(self, *args, definicion=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.categorias = {str(c.id): c for c in categorias}
-        self.fields["categoria_id"].choices = [("", "— Elige una categoría —")] + [
-            (str(c.id), c.nombre + (" (especial)" if c.es_especial else ""))
-            for c in categorias
-        ]
-        self._grupos = []
-        for c in categorias:
-            nombres = []
-            for atributo, regla in (c.definicion_atributos or {}).items():
-                nombre = _nombre_campo(c.id, atributo)
-                self.fields[nombre] = _campo_para(atributo, regla)
-                nombres.append(nombre)
-            self._grupos.append((c, nombres))
+        self.definicion = definicion or {}
+        for nombre, regla in self.definicion.items():
+            self.fields[self.PREFIJO + nombre] = self._campo(nombre, regla)
 
-    @property
-    def grupos_atributos(self):
-        return [(c, [self[n] for n in nombres]) for c, nombres in self._grupos]
+    @classmethod
+    def _campo(cls, nombre, regla):
+        """Crea el campo según el tipo del atributo (texto, entero, fecha, opción…)."""
+        tipo = regla.get("tipo", "texto")
+        crear_campo = cls.CAMPOS_POR_TIPO.get(tipo, _campo_texto)
+        return crear_campo(etiqueta=nombre.replace("_", " ").capitalize(),
+                           requerido=bool(regla.get("requerido", False)), regla=regla)
 
-    def clean_codigo(self):
-        return self.cleaned_data["codigo"].strip().upper()
+    def campos_de_atributos(self):
+        return [self[self.PREFIJO + n] for n in self.definicion]
 
-    def clean(self):
-        datos = super().clean()
-        categoria = self.categorias.get(datos.get("categoria_id") or "")
-        if categoria is None:
-            return datos
-        
-        atributos = {}
-        for atributo, regla in (categoria.definicion_atributos or {}).items():
-            nombre = _nombre_campo(categoria.id, atributo)
-            valor = datos.get(nombre)
-            vacio = valor in (None, "") or (regla.get("tipo") == "booleano" and valor is False and regla.get("requerido"))
-            
-            if regla.get("tipo") == "booleano" and not regla.get("requerido"):
-                atributos[atributo] = bool(valor)
-                continue
+    def atributos(self):
+        """Arma el JSON de atributos con lo que se escribió, sin incluir los campos vacíos."""
+        escritos = {nombre: self.cleaned_data.get(self.PREFIJO + nombre) for nombre in self.definicion}
+        return {nombre: self._como_json(valor) for nombre, valor in escritos.items() if self._tiene_valor(valor)}
 
-            if vacio:
-                if regla.get("requerido"):
-                    self.add_error(nombre, "Este atributo es obligatorio.")
-                continue
+    @staticmethod
+    def _tiene_valor(valor):
+        return valor is not None and valor != ""
 
-            if regla.get("tipo") == "fecha":
-                valor = valor.isoformat()
-                
-            if isinstance(valor, str):
-                valor = valor.strip()
-            atributos[atributo] = valor
-        datos["atributos"] = atributos
-        return datos
-    
-class MotivoForm(forms.Form):
-    motivo = forms.CharField(max_length=255, label="Motivo")
+    @staticmethod
+    def _como_json(valor):
+        """Las fechas se guardan como texto AAAA-MM-DD; lo demás tal cual."""
+        return valor.isoformat() if hasattr(valor, "isoformat") else valor

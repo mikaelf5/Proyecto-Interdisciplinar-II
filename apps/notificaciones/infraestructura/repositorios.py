@@ -9,6 +9,7 @@ class NotificacionRepositorioImpl(INotificacionRepositorio):
     def guardar(self, notificacion):
         notificacion.full_clean()
         notificacion.save()
+        return notificacion
 
     def buscar_por_id(self, notificacion_id):
         try:
