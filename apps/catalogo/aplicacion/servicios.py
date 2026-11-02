@@ -75,11 +75,12 @@ class ICatalogoServicio(ABC):
 
 
 class CatalogoServicioAplicacion(ICatalogoServicio):
-    def __init__(self, items=None, categorias=None, condiciones=None):
-        # Inyección de dependencias: en los tests se pueden pasar repositorios falsos.
+    def __init__(self, items=None, categorias=None, condiciones=None, reservas=None):
+        """Inyección de dependencias: en las pruebas se pueden pasar versiones falsas."""
         self.items = items or ItemRepositorioImpl()
         self.categorias = categorias or CategoriaRepositorioImpl()
         self.condiciones = condiciones or CondicionFisicaRepositorioImpl()
+        self._reservas = reservas
 
     # Categorías
     @transaction.atomic
@@ -108,24 +109,40 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
 
     @transaction.atomic
     def cambiar_estado_item(self, item_id, estado, motivo=""):
+        """Botón "Poner disponible" (y Préstamos al entregar/devolver)."""
         item = self.items.buscar_por_id(item_id)
         item.cambiar_estado(estado, motivo)  # regla de dominio (máquina de estados)
-        self.items.guardar(item)
+        self.items.guardar_estado(item)
         return ItemDTO.desde(item)
 
     @transaction.atomic
     def marcar_daniado(self, item_id, motivo):
+        """Botón "Marcar dañado": pasa a MANTENIMIENTO y anula sus reservas futuras."""
         item = self.items.buscar_por_id(item_id)
         item.marcar_daniado(motivo)
-        self.items.guardar(item)
+        self.items.guardar_estado(item)
+        self._anular_reservas_futuras(item)
         return ItemDTO.desde(item)
 
     @transaction.atomic
     def dar_de_baja_item(self, item_id, motivo):
+        """Botón "Dar de baja": retiro definitivo y anula sus reservas futuras."""
         item = self.items.buscar_por_id(item_id)
         item.dar_de_baja(motivo)
-        self.items.guardar(item)
+        self.items.guardar_estado(item)
+        self._anular_reservas_futuras(item)
         return ItemDTO.desde(item)
+
+    def _anular_reservas_futuras(self, item):
+        """Nadie debe llegar a recoger un ítem que ya no está en servicio (RF-A4)."""
+        motivo = f"{item.codigo} quedó fuera de servicio: {item.motivo_fuera_servicio}"
+        self._servicio_de_reservas().anular_reservas_del_item(item.id, motivo)
+
+    def _servicio_de_reservas(self):
+        if self._reservas is None:
+            from apps.reservas.aplicacion.servicios import ReservaServicioAplicacion  # evita importación circular
+            self._reservas = ReservaServicioAplicacion(catalogo=self)
+        return self._reservas
     
     def marcar_prestado(self, item_id):
         """Lo llama Circulación al entregar un préstamo."""

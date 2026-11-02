@@ -42,18 +42,21 @@ CUENTAS = [
     ("diego@demo.pe", "Diego Docente", "79000003", [RolSistema.SOLICITANTE], False, TipoUsuario.DOCENTE),
 ]
 
-# Políticas: (categoría, tipo de usuario) → duración máx. (horas), renovaciones,
-# antelación máx. (días), límite simultáneo global, límite simultáneo por categoría.
+# Políticas: (categoría, tipo de usuario) → duración máx. (horas), renovaciones, antelación máx. (días),
+#   límite global  = máximo de reservas vigentes en total (4 para todos),
+#   límite por tipo = máximo de esa clase de ítem (ítems especiales: 1 a la vez).
+# Duración máxima: Equipos 3 h, Libros 4 h, Indumentaria 5 h.
+# Duración mínima (15 min) y anticipación mínima (30 min): reservas/dominio/horario.py.
 POLITICAS = {
-    ("Libros", TipoUsuario.ALUMNO): (4, 2, 7, 2, 1),
-    ("Libros", TipoUsuario.DOCENTE): (6, 2, 7, 3, 2),
-    ("Libros", TipoUsuario.ADMINISTRATIVO): (4, 1, 7, 2, 1),
-    ("Equipos", TipoUsuario.ALUMNO): (2, 1, 3, 2, 1),
-    ("Equipos", TipoUsuario.DOCENTE): (4, 1, 7, 3, 2),
-    ("Equipos", TipoUsuario.ADMINISTRATIVO): (3, 1, 3, 2, 1),
-    ("Indumentaria", TipoUsuario.ALUMNO): (3, 1, 3, 2, 1),
-    ("Indumentaria", TipoUsuario.DOCENTE): (4, 1, 7, 3, 2),
-    ("Indumentaria", TipoUsuario.ADMINISTRATIVO): (3, 1, 3, 2, 1),
+    ("Libros", TipoUsuario.ALUMNO): (4, 2, 7, 4, 4),
+    ("Libros", TipoUsuario.DOCENTE): (4, 2, 7, 4, 4),
+    ("Libros", TipoUsuario.ADMINISTRATIVO): (4, 1, 7, 4, 4),
+    ("Equipos", TipoUsuario.ALUMNO): (3, 1, 3, 4, 1),
+    ("Equipos", TipoUsuario.DOCENTE): (3, 1, 7, 4, 1),
+    ("Equipos", TipoUsuario.ADMINISTRATIVO): (3, 1, 3, 4, 1),
+    ("Indumentaria", TipoUsuario.ALUMNO): (5, 1, 3, 4, 4),
+    ("Indumentaria", TipoUsuario.DOCENTE): (5, 1, 7, 4, 4),
+    ("Indumentaria", TipoUsuario.ADMINISTRATIVO): (5, 1, 3, 4, 4),
 }
 
 

@@ -26,12 +26,18 @@ from django.db.models import Q
 from apps.common.choices import EstadoReserva
 from apps.common.models import BaseModel
 
+from .horario import minutos_del_dia
+
 # Estados en los que la reserva "ocupa" su franja: nadie más puede reservar ese horario.
 ESTADOS_QUE_OCUPAN = (
     EstadoReserva.EN_ESPERA_SUPERVISOR,
     EstadoReserva.CONFIRMADA,
     EstadoReserva.ATENDIDA,
 )
+# Reservas "vigentes" (aún no terminan): cuentan para el límite de la política.
+ESTADOS_VIGENTES = (EstadoReserva.ACTIVA,) + ESTADOS_QUE_OCUPAN
+# Reservas futuras que se anulan si el ítem queda fuera de servicio.
+ESTADOS_ANULABLES = (EstadoReserva.ACTIVA, EstadoReserva.EN_ESPERA_SUPERVISOR, EstadoReserva.CONFIRMADA)
 
 
 class Reserva(BaseModel):
@@ -84,6 +90,15 @@ class Reserva(BaseModel):
     def ocupa_franja(self):
         return self.estado in ESTADOS_QUE_OCUPAN
 
+    def choca_con(self, desde, hasta, margen_min):
+        """
+        ¿El rango [desde, hasta) choca con esta reserva, contando el margen entre reservas?
+        Con margen de 15: si esta es 9:00–9:15, entonces 9:15–10:00 choca y 9:30–10:00 no.
+        """
+        inicio_con_margen = minutos_del_dia(self.hora_inicio) - margen_min
+        fin_con_margen = minutos_del_dia(self.hora_fin) + margen_min
+        return inicio_con_margen < minutos_del_dia(hasta) and minutos_del_dia(desde) < fin_con_margen
+
     def se_cruza_con(self, desde, hasta):
         """¿Esta reserva se superpone con el rango [desde, hasta) del mismo día?"""
         return self.hora_inicio < hasta and desde < self.hora_fin
@@ -128,8 +143,9 @@ class Reserva(BaseModel):
     def anular(self, motivo):
         if not motivo or not motivo.strip():
             raise ValidationError("Indica el motivo de la anulación.")
-        self._pasar(EstadoReserva.ANULADA, {EstadoReserva.EN_ESPERA_SUPERVISOR, EstadoReserva.CONFIRMADA})
+        self._pasar(EstadoReserva.ANULADA, set(ESTADOS_ANULABLES))
         self.motivo = motivo.strip()
+        self.posicion_en_cola = None
 
     def expirar(self):
         self._pasar(EstadoReserva.EXPIRADA, {

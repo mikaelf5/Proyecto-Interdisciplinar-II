@@ -33,6 +33,11 @@ class ItemRepositorioImpl(IItemRepositorio):
         item.full_clean()  # valida atributos dinámicos contra la categoría
         item.save()
 
+    def guardar_estado(self, item):
+        # Un cambio de estado no debe fallar porque después le agregaron un atributo
+        # obligatorio a la categoría: por eso solo se escriben estas columnas.
+        item.save(update_fields=["estado", "motivo_fuera_servicio", "actualizado_en"])
+
     def buscar_por_id(self, item_id):
         try:
             return Item.objects.select_related("categoria").get(pk=item_id)

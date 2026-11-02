@@ -6,7 +6,8 @@ Casos de uso de Reservas. Habla con otros módulos SOLO por sus servicios:
 - Identidad (puerto): ¿está habilitado?, ¿qué tipo de usuario es?
 - Políticas (puerto): duración máxima, antelación y límites.
 - Notificaciones: avisar cuando se libera una franja o cambia una reserva.
-- Auditoría: dejar constancia de aprobaciones, rechazos y anulaciones.
+
+Lo que usa Catálogo: anular_reservas_del_item(...) cuando un ítem queda fuera de servicio.
 
 Contrato con Préstamos (Marving):
     confirmadas_de_hoy(), marcar_atendida(reserva_id), franja_libre(...),
@@ -50,10 +51,13 @@ class IReservaServicio(ABC):
     def rechazar_supervisor(self, reserva_id, supervisor_id, motivo): ...
 
     @abstractmethod
-    def anular(self, reserva_id, encargado_id, motivo): ...
+    def anular(self, reserva_id, motivo): ...
 
     @abstractmethod
     def expirar_reservas(self, ahora=None): ...
+
+    @abstractmethod
+    def anular_reservas_del_item(self, item_id, motivo): ...
 
     @abstractmethod
     def confirmadas_de_hoy(self): ...
@@ -73,14 +77,13 @@ class IReservaServicio(ABC):
 
 class ReservaServicioAplicacion(IReservaServicio):
     def __init__(self, repositorio=None, catalogo=None, notificaciones=None, identidad=None,
-                 politicas=None, auditoria=None, horario=None, reloj=None):
+                 politicas=None, horario=None, reloj=None):
         """Inyección de dependencias: en las pruebas se pasan versiones falsas."""
         self.repositorio = repositorio or ReservaRepositorioImpl()
         self.catalogo = catalogo or self._catalogo_por_defecto()
         self.notificaciones = notificaciones or self._notificaciones_por_defecto()
         self.identidad = identidad or self._identidad_por_defecto()
         self.politicas = politicas or self._politicas_por_defecto()
-        self.auditoria = auditoria or self._auditoria_por_defecto()
         self.horario = horario or HorarioAtencion.desde_settings()
         self.reloj = reloj or timezone.localtime
         self.asignador = AsignadorDeCola()
@@ -108,16 +111,12 @@ class ReservaServicioAplicacion(IReservaServicio):
         from ..infraestructura.adaptadores import PoliticasAdaptador
         return PoliticasAdaptador()
 
-    @staticmethod
-    def _auditoria_por_defecto():
-        from apps.auditoria.fabrica import auditoria_servicio
-        return auditoria_servicio()
-
     # Casos de uso del SOLICITANTE
 
     @transaction.atomic
     def crear(self, dto):
         """Botón "Reservar". Si cumple las reglas se aprueba sola (o va al supervisor)."""
+        self.expirar_reservas()                    # libera las franjas de quien no vino
         item = self._item_solicitado(dto)
         politica = self._validar_reglas(dto, item.categoria_id)
         self.repositorio.bloquear_item(item.id)
@@ -133,10 +132,12 @@ class ReservaServicioAplicacion(IReservaServicio):
         """Botón "Avisarme si se libera": entra a la lista de espera FIFO (RF-F2)."""
         if not dto.item_id:
             raise ValidationError("Indica el ítem para anotarte en su lista de espera.")
+        self.expirar_reservas()
         item = self._item_reservable(dto.item_id)
-        self._validar_reglas(dto, item.categoria_id)
+        politica = self._validar_reglas(dto, item.categoria_id)
         self.repositorio.bloquear_item(item.id)
         self._verificar_que_puede_esperar(item, dto)
+        self._verificar_limites(politica, item, dto)  # la lista de espera también cuenta
         reserva = self._nueva_reserva(item, dto)
         reserva.posicion_en_cola = self.asignador.posicion_para_nueva(self.repositorio.cola_de(item.id))
         self.repositorio.guardar(reserva)
@@ -161,9 +162,10 @@ class ReservaServicioAplicacion(IReservaServicio):
     def aprobar_supervisor(self, reserva_id, supervisor_id):
         """Botón "Aprobar" de la bandeja del supervisor (ítems especiales, RF-D5)."""
         reserva = self.repositorio.buscar_por_id(reserva_id)
+        if self._ya_empezo(reserva, self.reloj()):
+            raise ValidationError("El horario de esta reserva ya empezó: ya no se puede aprobar.")
         reserva.aprobar_por_supervisor(supervisor_id)
         self.repositorio.guardar(reserva)
-        self._auditar(supervisor_id, "APROBACION", reserva, "Reserva aprobada por supervisor")
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue aprobada por el supervisor.")
         return ReservaDTO.desde(reserva)
 
@@ -173,18 +175,16 @@ class ReservaServicioAplicacion(IReservaServicio):
         reserva = self.repositorio.buscar_por_id(reserva_id)
         reserva.rechazar_por_supervisor(supervisor_id, motivo)
         self.repositorio.guardar(reserva)
-        self._auditar(supervisor_id, "RECHAZO", reserva, reserva.motivo)
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue rechazada. Motivo: {reserva.motivo}")
         self._pasar_turno_en(reserva.item_id, reserva.fecha)
         return ReservaDTO.desde(reserva)
 
     @transaction.atomic
-    def anular(self, reserva_id, encargado_id, motivo):
-        """Botón "Anular" de la agenda (encargado). Queda en auditoría (RF-J1)."""
+    def anular(self, reserva_id, motivo):
+        """Botón "Anular" de la agenda (encargado). Exige motivo y avisa al solicitante."""
         reserva = self.repositorio.buscar_por_id(reserva_id)
         reserva.anular(motivo)
         self.repositorio.guardar(reserva)
-        self._auditar(encargado_id, "CAMBIO_ESTADO", reserva, f"Reserva anulada: {reserva.motivo}")
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue anulada. Motivo: {reserva.motivo}")
         self._pasar_turno_en(reserva.item_id, reserva.fecha)
         return ReservaDTO.desde(reserva)
@@ -206,6 +206,16 @@ class ReservaServicioAplicacion(IReservaServicio):
             self._pasar_turno_en(item_id, fecha, ahora)
         return expiradas
 
+    @transaction.atomic
+    def anular_reservas_del_item(self, item_id, motivo):
+        """Catálogo la llama al marcar un ítem dañado o darlo de baja: anula y avisa a cada uno."""
+        anuladas = self.repositorio.futuras_del_item(item_id, self.reloj().date())
+        for reserva in anuladas:
+            reserva.anular(motivo)
+            self.repositorio.guardar(reserva)
+            self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue anulada. Motivo: {motivo}")
+        return len(anuladas)
+
     # Contrato con PRÉSTAMOS
 
     def confirmadas_de_hoy(self):
@@ -224,7 +234,7 @@ class ReservaServicioAplicacion(IReservaServicio):
 
     def franja_libre(self, item_id, fecha, desde, hasta, excluir_reserva_id=None):
         ocupadas = self.repositorio.ocupadas_de(item_id, fecha, excluir_id=excluir_reserva_id)
-        return not any(r.se_cruza_con(desde, hasta) for r in ocupadas)
+        return not any(self._choca(r, desde, hasta) for r in ocupadas)
 
     @transaction.atomic
     def extender(self, reserva_id, nueva_hora_fin):
@@ -324,11 +334,13 @@ class ReservaServicioAplicacion(IReservaServicio):
     def _verificar_franja_libre(self, item, dto):
         """Franja exclusiva: si choca, se rechaza ofreciendo horarios libres y otros ítems."""
         ocupadas = self.repositorio.ocupadas_de(item.id, dto.fecha)
-        choque = next((r for r in ocupadas if r.se_cruza_con(dto.hora_inicio, dto.hora_fin)), None)
+        choque = next((r for r in ocupadas if self._choca(r, dto.hora_inicio, dto.hora_fin)), None)
         if choque:
             raise HorarioOcupado(
                 f"{item.codigo} ({item.nombre}) ya está reservado el {choque.fecha:%d/%m/%Y} "
-                f"de {choque.hora_inicio:%H:%M} a {choque.hora_fin:%H:%M}. Elige otro horario.",
+                f"de {choque.hora_inicio:%H:%M} a {choque.hora_fin:%H:%M}. Entre reservas se dejan "
+                f"{self.horario.margen_entre_reservas_min} minutos para recibir y revisar el ítem. "
+                f"Elige otro horario.",
                 ocupada=ReservaDTO.desde(choque),
                 horarios_libres=self.calculadora.libres(dto.fecha, ocupadas, self.reloj()),
                 alternativos=self._alternativos(item, dto),
@@ -339,14 +351,22 @@ class ReservaServicioAplicacion(IReservaServicio):
                 if otro.id != item.id and self.franja_libre(otro.id, dto.fecha, dto.hora_inicio, dto.hora_fin)]
 
     def _verificar_limites(self, politica, item, dto):
-        total = self.repositorio.simultaneas_de(dto.solicitante_id, dto.fecha, dto.hora_inicio, dto.hora_fin)
-        de_la_categoria = self.repositorio.simultaneas_de(
-            dto.solicitante_id, dto.fecha, dto.hora_inicio, dto.hora_fin, categoria_id=item.categoria_id)
-        self.reglas.validar_limites(politica, total, de_la_categoria)
+        """Máximo de reservas vigentes en total y por clase de ítem (ej. 1 especial a la vez)."""
+        hoy = self.reloj().date()
+        mismo_tipo = self._categorias_especiales() if item.categoria_es_especial else [item.categoria_id]
+        self.reglas.validar_limites(
+            politica,
+            vigentes_total=self.repositorio.vigentes_de(dto.solicitante_id, hoy),
+            vigentes_mismo_tipo=self.repositorio.vigentes_de(dto.solicitante_id, hoy, categoria_ids=mismo_tipo),
+            es_especial=item.categoria_es_especial,
+        )
+
+    def _categorias_especiales(self):
+        return [categoria.id for categoria in self.catalogo.listar_categorias() if categoria.es_especial]
 
     def _verificar_que_puede_esperar(self, item, dto):
         ocupadas = [r for r in self.repositorio.ocupadas_de(item.id, dto.fecha)
-                    if r.se_cruza_con(dto.hora_inicio, dto.hora_fin)]
+                    if self._choca(r, dto.hora_inicio, dto.hora_fin)]
         if not ocupadas:
             raise ValidationError("Ese horario está libre: puedes reservarlo directamente.")
         if any(r.solicitante_id == dto.solicitante_id for r in ocupadas):
@@ -391,9 +411,12 @@ class ReservaServicioAplicacion(IReservaServicio):
                 self._avisar_turno(reserva, es_especial)
             self.repositorio.guardar(reserva)
 
-    @staticmethod
-    def _franja_sigue_tomada(reserva, ocupadas):
-        return any(o.se_cruza_con(reserva.hora_inicio, reserva.hora_fin) for o in ocupadas)
+    def _franja_sigue_tomada(self, reserva, ocupadas):
+        return any(self._choca(o, reserva.hora_inicio, reserva.hora_fin) for o in ocupadas)
+
+    def _choca(self, reserva, desde, hasta):
+        """Única regla de choque de horarios: superposición + margen entre reservas (15 min)."""
+        return reserva.choca_con(desde, hasta, self.horario.margen_entre_reservas_min)
 
     def _avisar_turno(self, reserva, es_especial):
         falta_supervisor = " Falta la aprobación del supervisor." if es_especial else ""
@@ -416,7 +439,7 @@ class ReservaServicioAplicacion(IReservaServicio):
         inicio = datetime.combine(reserva.fecha, reserva.hora_inicio)
         return timezone.make_aware(inicio, timezone.get_current_timezone())
 
-    # Avisos y auditoría
+    # Avisos
 
     def _describir(self, reserva):
         """'LIB-001 para el 02/11/2026 de 10:00 a 12:00' (para los mensajes)."""
@@ -431,6 +454,3 @@ class ReservaServicioAplicacion(IReservaServicio):
 
     def _avisar(self, reserva, mensaje):
         self.notificaciones.enviar(reserva.solicitante_id, TipoNotificacion.DISPONIBILIDAD_RESERVA, mensaje)
-
-    def _auditar(self, actor_id, accion, reserva, motivo):
-        self.auditoria.registrar(actor_id, accion, "Reserva", reserva.id, motivo)

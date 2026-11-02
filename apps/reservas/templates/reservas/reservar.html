@@ -5,7 +5,9 @@
 <a href="{% url 'catalogo:detalle' item.id %}" class="btn btn-link px-0 mb-2">← Volver al ítem</a>
 <h1 class="h4 mb-1">Reservar · {{ item.nombre }} <small class="text-muted">({{ item.codigo }})</small></h1>
 <p class="text-muted small mb-3">
-    Se usa en un solo día, dentro del horario de atención: {{ horario }}.
+    Se usa en un solo día, dentro del horario de atención: {{ horario }}.<br>
+    Mínimo {{ reglas.duracion_minima_min }} minutos, en bloques de {{ reglas.bloque_min }} minutos,
+    y con al menos {{ reglas.anticipacion_minima_min }} minutos de anticipación.
     {% if item.categoria_es_especial %}<span class="badge bg-warning text-dark">Ítem especial: lo aprueba un supervisor</span>{% endif %}
 </p>
 
