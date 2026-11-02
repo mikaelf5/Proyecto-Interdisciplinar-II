@@ -21,8 +21,12 @@ from django.db import models
 from apps.common.choices import EtiquetaEstado, RolSistema, TipoUsuario
 from apps.common.models import BaseModel
 
-from .excepciones import RolInvalido
+from .excepciones import ActaYaFirmada, RolInvalido
 from .hasher import IPasswordHasher
+from .validadores import validar_celular, validar_cui, validar_dni
+
+# Roles que son "personal" de la escuela (no solo solicitantes).
+ROLES_PERSONAL = (RolSistema.ADMINISTRADOR, RolSistema.ENCARGADO, RolSistema.SUPERVISOR)
 
 
 class CuentaManager(BaseUserManager):
@@ -54,10 +58,10 @@ class CuentaManager(BaseUserManager):
 
 class Cuenta(AbstractBaseUser, PermissionsMixin, BaseModel):
     nombres = models.CharField(max_length=150)
-    dni = models.CharField(max_length=15, unique=True)
+    dni = models.CharField("DNI", max_length=15, unique=True, validators=[validar_dni])
     # --- VO Contacto embebido ---
     correo = models.EmailField("correo", unique=True)
-    celular = models.CharField(max_length=20, blank=True)
+    celular = models.CharField(max_length=20, blank=True, validators=[validar_celular])
     direccion = models.CharField("dirección", max_length=255, blank=True)
     # --- roles del dominio (conjunto) ---
     roles = ArrayField(
@@ -66,12 +70,20 @@ class Cuenta(AbstractBaseUser, PermissionsMixin, BaseModel):
         blank=True,
         help_text="Conjunto de roles del sistema.",
     )
+    # --- Consentimiento de datos personales (RNF-2, Ley 29733) ---
+    consentimiento_version = models.CharField(
+        "versión del consentimiento de datos", max_length=20, blank=True
+    )
+    consentimiento_fecha = models.DateTimeField(
+        "fecha del consentimiento de datos", null=True, blank=True
+    )
     is_active = models.BooleanField("activa", default=True)
     is_staff = models.BooleanField("acceso al admin", default=False)
 
     objects = CuentaManager()
 
     USERNAME_FIELD = "correo"       # se inicia sesión con el correo
+    EMAIL_FIELD = "correo"          # a dónde manda Django el correo de recuperación (RF-B4)
     REQUIRED_FIELDS = ["nombres", "dni"]
 
     class Meta:
@@ -99,6 +111,53 @@ class Cuenta(AbstractBaseUser, PermissionsMixin, BaseModel):
         self.roles = (self.roles or []) + [rol]
         return True
 
+    def quitar_rol(self, rol):
+        """Saca el rol del conjunto. Devuelve False si no lo tenía (idempotente)."""
+        if rol not in RolSistema.values:
+            raise RolInvalido(f"Rol no válido: {rol}")
+        if not self.tiene_rol(rol):
+            return False
+        self.roles = [r for r in self.roles if r != rol]
+        return True
+
+    def es_personal(self):
+        return self.is_superuser or self.tiene_algun_rol(*ROLES_PERSONAL)
+
+    def roles_legibles(self):
+        return [RolSistema(r).label for r in (self.roles or []) if r in RolSistema.values]
+
+    def sincronizar_acceso_panel(self):
+        """Solo el Administrador entra al panel /admin/ (ahí se configuran las Políticas).
+
+        El superusuario se deja como está: se crea por consola y no depende de roles.
+        """
+        if not self.is_superuser:
+            self.is_staff = self.tiene_rol(RolSistema.ADMINISTRADOR)
+
+    def activar(self):
+        if self.is_active:
+            return False
+        self.is_active = True
+        return True
+
+    def desactivar(self):
+        """Se desactiva, nunca se borra: préstamos, sanciones y auditoría guardan su id."""
+        if not self.is_active:
+            return False
+        self.is_active = False
+        return True
+
+    def actualizar_contacto(self, celular, direccion):
+        self.celular = (celular or "").strip()
+        self.direccion = (direccion or "").strip()
+
+    def registrar_consentimiento(self, version, fecha):
+        self.consentimiento_version = version
+        self.consentimiento_fecha = fecha
+
+    def dio_consentimiento(self):
+        return bool(self.consentimiento_version and self.consentimiento_fecha)
+
     def autenticar(self, password, hasher: IPasswordHasher):
         """Verifica la contraseña con el hasher que se le inyecte.
 
@@ -118,7 +177,7 @@ class PerfilSolicitante(BaseModel):
         Cuenta, on_delete=models.CASCADE, related_name="perfil"
     )
     tipo = models.CharField(max_length=20, choices=TipoUsuario.choices)
-    cui = models.CharField(max_length=20, blank=True)
+    cui = models.CharField("CUI", max_length=20, blank=True, validators=[validar_cui])
     # --- VO ActaResponsabilidad embebido ---
     acta_version = models.CharField("versión del acta", max_length=20, blank=True)
     acta_fecha_firma = models.DateField(
@@ -140,6 +199,28 @@ class PerfilSolicitante(BaseModel):
 
     def acta_firmada(self):
         return bool(self.acta_version and self.acta_fecha_firma)
+
+    def firmar_acta(self, version, fecha):
+        """El acta se firma UNA sola vez (RF-B2): se guarda la versión y la fecha."""
+        if self.acta_firmada():
+            raise ActaYaFirmada("El acta de responsabilidad ya fue firmada.")
+        self.acta_version = version
+        self.acta_fecha_firma = fecha
+
+    def cambiar_etiqueta(self, nueva):
+        """Devuelve False si ya tenía esa etiqueta (así no se audita nada)."""
+        if nueva not in EtiquetaEstado.values:
+            raise ValueError(f"Etiqueta no válida: {nueva}")
+        if self.etiqueta == nueva:
+            return False
+        self.etiqueta = nueva
+        return True
+
+    def cambiar_habilitacion_institucional(self, habilitado):
+        if self.habilitado_institucional == habilitado:
+            return False
+        self.habilitado_institucional = habilitado
+        return True
 
     def motivos_de_inhabilitacion(self):
         """Lista de razones por las que NO puede solicitar (vacía = habilitado).

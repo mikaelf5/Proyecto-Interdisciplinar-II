@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ cuenta.nombres }}{% endblock %}
+
+{% block content %}
+<nav class="small mb-2"><a href="{% url 'identidad:cuentas' %}">← Cuentas</a></nav>
+<div class="d-flex align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">{{ cuenta.nombres }}</h1>
+    {% if cuenta.is_active %}<span class="badge badge-activa">Activa</span>{% else %}<span class="badge badge-inactiva">Inactiva</span>{% endif %}
+    {% if perfil %}{% include "identidad/_etiqueta.html" with etiqueta=perfil.etiqueta texto=perfil.get_etiqueta_display %}{% endif %}
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Datos</h2>
+            <dl class="row mb-0 small">
+                <dt class="col-4">Correo</dt><dd class="col-8">{{ cuenta.correo }}</dd>
+                <dt class="col-4">DNI</dt><dd class="col-8">{{ cuenta.dni }}</dd>
+                <dt class="col-4">Celular</dt><dd class="col-8">{{ cuenta.celular|default:"—" }}</dd>
+                <dt class="col-4">Dirección</dt><dd class="col-8">{{ cuenta.direccion|default:"—" }}</dd>
+                <dt class="col-4">Consentimiento</dt>
+                <dd class="col-8">{% if cuenta.dio_consentimiento %}{{ cuenta.consentimiento_version }} · {{ cuenta.consentimiento_fecha|date:"d/m/Y H:i" }}{% else %}<span class="text-danger">No registrado</span>{% endif %}</dd>
+            </dl>
+        </div>
+
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Roles</h2>
+            <ul class="list-unstyled mb-3">
+            {% for rol in cuenta.roles %}
+                <li class="d-flex justify-content-between align-items-center border-bottom py-1">
+                    <span>{{ rol|title }}</span>
+                    <form method="post" action="{% url 'identidad:quitar_rol' cuenta.pk %}">
+                        {% csrf_token %}<input type="hidden" name="rol" value="{{ rol }}">
+                        <button class="btn btn-sm btn-link text-danger">Quitar</button>
+                    </form>
+                </li>
+            {% empty %}<li class="text-muted small">Sin roles.</li>{% endfor %}
+            </ul>
+            <form method="post" action="{% url 'identidad:asignar_rol' cuenta.pk %}" class="d-flex gap-2">
+                {% csrf_token %}{{ form_rol.rol }}
+                <button class="btn btn-sm btn-outline-primary">Asignar</button>
+            </form>
+        </div>
+
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Estado de la cuenta</h2>
+            {% if es_yo %}
+                <p class="small text-muted mb-0">Es tu propia cuenta: no puedes desactivarla.</p>
+            {% elif cuenta.is_active %}
+                <form method="post" action="{% url 'identidad:desactivar' cuenta.pk %}" class="d-flex gap-2">
+                    {% csrf_token %}{{ form_motivo.motivo }}
+                    <button class="btn btn-sm btn-outline-danger text-nowrap">Desactivar</button>
+                </form>
+                <p class="small text-muted mt-2 mb-0">Desactivar no borra la cuenta: sus préstamos, sanciones y auditoría se conservan.</p>
+            {% else %}
+                <form method="post" action="{% url 'identidad:activar' cuenta.pk %}">
+                    {% csrf_token %}<button class="btn btn-sm btn-success">Activar cuenta</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        {% if perfil %}
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Perfil de solicitante</h2>
+            <dl class="row small">
+                <dt class="col-5">Tipo</dt><dd class="col-7">{{ perfil.get_tipo_display }}</dd>
+                <dt class="col-5">CUI</dt><dd class="col-7">{{ perfil.cui|default:"—" }}</dd>
+                <dt class="col-5">Acta de responsabilidad</dt>
+                <dd class="col-7">{% if perfil.acta_firmada %}{{ perfil.acta_version }} · {{ perfil.acta_fecha_firma|date:"d/m/Y" }}{% else %}<span class="text-danger">Sin firmar</span>{% endif %}</dd>
+                <dt class="col-5">Habilitación institucional</dt>
+                <dd class="col-7">{% if perfil.habilitado_institucional %}Sí{% else %}<span class="text-danger">No</span>{% endif %}</dd>
+                <dt class="col-5">Etiqueta</dt>
+                <dd class="col-7">{% include "identidad/_etiqueta.html" with etiqueta=perfil.etiqueta texto=perfil.get_etiqueta_display %}
+                    <form method="post" action="{% url 'identidad:recalcular_etiqueta' cuenta.pk %}" class="d-inline">
+                        {% csrf_token %}<button class="btn btn-sm btn-link p-0 ms-2">Recalcular</button>
+                    </form>
+                </dd>
+            </dl>
+            {% if habilitacion is not None %}
+                {% if habilitacion %}
+                    <div class="alert alert-success py-2 small mb-3">Puede solicitar préstamos.</div>
+                {% else %}
+                    <div class="alert alert-warning py-2 small mb-3"><b>No puede solicitar:</b> {{ habilitacion.mensaje }}</div>
+                {% endif %}
+            {% endif %}
+            {% if perfil.habilitado_institucional %}
+                <form method="post" action="{% url 'identidad:habilitacion' cuenta.pk %}" class="d-flex gap-2">
+                    {% csrf_token %}<input type="hidden" name="habilitado" value="0">{{ form_motivo.motivo }}
+                    <button class="btn btn-sm btn-outline-warning text-nowrap">Retirar habilitación</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'identidad:habilitacion' cuenta.pk %}">
+                    {% csrf_token %}<input type="hidden" name="habilitado" value="1">
+                    <button class="btn btn-sm btn-success">Confirmar condición institucional</button>
+                </form>
+            {% endif %}
+        </div>
+        {% elif form_perfil %}
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-1">Crear perfil de solicitante</h2>
+            <p class="small text-muted">Esta cuenta no tiene perfil. Créalo si va a pedir préstamos (se le asigna el rol Solicitante).</p>
+            <form method="post" action="{% url 'identidad:completar_perfil' cuenta.pk %}" novalidate>
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form_perfil.tipo %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form_perfil.cui %}</div>
+                </div>
+                <div class="form-check mb-2">{{ form_perfil.habilitado_institucional }}
+                    <label class="form-check-label" for="{{ form_perfil.habilitado_institucional.id_for_label }}">{{ form_perfil.habilitado_institucional.label }}</label></div>
+                <div class="border rounded p-2 bg-light small mb-2">{{ form_perfil.acta_aceptada.help_text }}</div>
+                <div class="form-check mb-3">{{ form_perfil.acta_aceptada }}
+                    <label class="form-check-label" for="{{ form_perfil.acta_aceptada.id_for_label }}">{{ form_perfil.acta_aceptada.label }}</label></div>
+                <button class="btn btn-sm btn-primary">Crear perfil</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

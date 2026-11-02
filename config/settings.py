@@ -13,7 +13,13 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "solo-para-desarrollo-cambiar")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# RF-B4: en desarrollo los correos (ej. recuperar contraseña) se imprimen en la consola.
+EMAIL_BACKEND = "apps.identidad.infraestructura.correo_consola.EmailBackend"
+DEFAULT_FROM_EMAIL = "Sistema de Préstamos <no-responder@unsa.edu.pe>"
+PASSWORD_RESET_TIMEOUT = 60 * 60  # el enlace de recuperación vale 1 hora
+
+# RF-B6: préstamos devueltos a tiempo para que un solicitante sea FRECUENTE.
+IDENTIDAD_PRESTAMOS_PARA_FRECUENTE = int(os.getenv("IDENTIDAD_PRESTAMOS_PARA_FRECUENTE", "5"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -59,6 +65,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.identidad.presentacion.context_processors.menu_por_rol",
             ],
         },
     },
@@ -77,7 +84,13 @@ DATABASES = {
     }
 }
 
-AUTH_PASSWORD_VALIDATORS = []
+# RNF-1: reglas de contraseña (se aplican al registrar, recuperar y cambiar contraseña).
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 8}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 LANGUAGE_CODE = "es-pe"
 TIME_ZONE = "America/Lima"

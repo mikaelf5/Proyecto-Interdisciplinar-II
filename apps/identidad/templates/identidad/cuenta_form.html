@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Registrar usuario{% endblock %}
+
+{% block content %}
+<nav class="small mb-2"><a href="{% url 'identidad:cuentas' %}">← Cuentas</a></nav>
+<h1 class="h3 mb-3">Registrar usuario</h1>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <h2 class="h6 text-uppercase text-muted mb-3">Datos personales</h2>
+                {% include "includes/campo.html" with campo=form.nombres %}
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.dni %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.celular %}</div>
+                </div>
+                {% include "includes/campo.html" with campo=form.correo %}
+                {% include "includes/campo.html" with campo=form.direccion %}
+
+                <h2 class="h6 text-uppercase text-muted mt-2 mb-3">Acceso</h2>
+                <div class="mb-3">
+                    <label class="form-label">Roles</label>
+                    {% for opcion in form.roles %}
+                        <div class="form-check">{{ opcion.tag }} <label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+                    {% endfor %}
+                    {% for error in form.roles.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.password1 %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.password2 %}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-4 mb-4">
+                <h2 class="h6 text-uppercase text-muted mb-1">Perfil de solicitante</h2>
+                <p class="small text-muted">Solo si tiene el rol <b>Solicitante</b>.</p>
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.tipo %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.cui %}</div>
+                </div>
+                <div class="form-check mb-3">
+                    {{ form.habilitado_institucional }}
+                    <label class="form-check-label" for="{{ form.habilitado_institucional.id_for_label }}">{{ form.habilitado_institucional.label }}</label>
+                </div>
+                <div class="border rounded p-3 bg-light small mb-2">
+                    <b>Acta de responsabilidad ({{ version_acta }})</b><br>{{ form.acta_aceptada.help_text }}
+                </div>
+                <div class="form-check">
+                    {{ form.acta_aceptada }}
+                    <label class="form-check-label" for="{{ form.acta_aceptada.id_for_label }}">{{ form.acta_aceptada.label }}</label>
+                    {% for error in form.acta_aceptada.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h2 class="h6 text-uppercase text-muted mb-2">Datos personales — Ley N.° 29733</h2>
+                <div class="border rounded p-3 bg-light small mb-2">
+                    <b>Consentimiento ({{ version_consentimiento }})</b><br>{{ form.consentimiento_aceptado.help_text }}
+                </div>
+                <div class="form-check">
+                    {{ form.consentimiento_aceptado }}
+                    <label class="form-check-label" for="{{ form.consentimiento_aceptado.id_for_label }}">{{ form.consentimiento_aceptado.label }}</label>
+                    {% for error in form.consentimiento_aceptado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Registrar</button>
+        <a href="{% url 'identidad:cuentas' %}" class="btn btn-link">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
