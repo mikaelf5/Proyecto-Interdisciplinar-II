@@ -4,88 +4,18 @@ Usan repositorios y hasher falsos (en memoria): no tocan la base de datos.
 Esto es lo que gana la arquitectura de 4 capas: la lógica se prueba sola.
 """
 import uuid
-from datetime import date
 
 from django.test import SimpleTestCase
 
-from apps.common.choices import EtiquetaEstado, RolSistema, TipoUsuario
-from apps.identidad.aplicacion.servicios import CuentaServicioAplicacion
+from apps.common.choices import EtiquetaEstado, RolSistema
 from apps.identidad.dominio.excepciones import (
     CredencialesInvalidas,
     CuentaInactiva,
     CuentaNoEncontrada,
     RolInvalido,
 )
-from apps.identidad.dominio.hasher import IPasswordHasher
-from apps.identidad.dominio.models import Cuenta, PerfilSolicitante
-from apps.identidad.dominio.repositorio import (
-    ICuentaRepositorio,
-    IPerfilSolicitanteRepositorio,
-)
 
-
-class HasherFalso(IPasswordHasher):
-    def hashear(self, password_plano):
-        return f"hash::{password_plano}"
-
-    def verificar(self, password_plano, password_hash):
-        return password_hash == f"hash::{password_plano}"
-
-
-class CuentaRepoFalso(ICuentaRepositorio):
-    def __init__(self, *cuentas):
-        self.cuentas = {c.pk: c for c in cuentas}
-        self.guardadas = []
-
-    def obtener(self, cuenta_id):
-        return self.cuentas.get(cuenta_id)
-
-    def por_correo(self, correo):
-        return next((c for c in self.cuentas.values() if c.correo.lower() == correo.lower()), None)
-
-    def guardar(self, cuenta):
-        self.guardadas.append(cuenta)
-        return cuenta
-
-    def listar(self, q=""):
-        return list(self.cuentas.values())
-
-
-class PerfilRepoFalso(IPerfilSolicitanteRepositorio):
-    def __init__(self, *perfiles):
-        self.perfiles = {p.cuenta.pk: p for p in perfiles}
-
-    def de_cuenta(self, cuenta_id):
-        return self.perfiles.get(cuenta_id)
-
-
-class AuditoriaFalsa:
-    def __init__(self):
-        self.registros = []
-
-    def registrar(self, *args):
-        self.registros.append(args)
-
-
-def nueva_cuenta(correo="ana@unsa.edu.pe", password="secreta123", **extra):
-    cuenta = Cuenta(id=uuid.uuid4(), correo=correo, nombres="Ana", dni="70000001", **extra)
-    cuenta.password = HasherFalso().hashear(password)
-    return cuenta
-
-
-def perfil_ok(cuenta, **extra):
-    datos = dict(
-        cuenta=cuenta, tipo=TipoUsuario.ALUMNO, habilitado_institucional=True,
-        acta_version="v1", acta_fecha_firma=date(2026, 10, 1),
-    )
-    datos.update(extra)
-    return PerfilSolicitante(**datos)
-
-
-def servicio(cuentas=(), perfiles=(), auditoria=None):
-    return CuentaServicioAplicacion(
-        CuentaRepoFalso(*cuentas), PerfilRepoFalso(*perfiles), HasherFalso(), auditoria
-    )
+from .falsos import AuditoriaFalsa, nueva_cuenta, perfil_ok, servicio
 
 
 class IniciarSesionTests(SimpleTestCase):
