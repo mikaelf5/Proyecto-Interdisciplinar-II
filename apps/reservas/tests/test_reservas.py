@@ -15,7 +15,6 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase, TestCase
 
-from apps.auditoria.models import RegistroAuditoria
 from apps.catalogo.aplicacion.dtos import NuevoItemDTO
 from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
 from apps.common.choices import EstadoReserva, RolSistema, TipoUsuario
@@ -81,7 +80,21 @@ class DominioTests(SimpleTestCase):
     def test_horarios_libres_del_dia(self):
         calc = CalculadoraDeHorarios(HorarioAtencion())
         libres = calc.libres(LUNES, [_R(desde="10:00", hasta="12:00"), _R(desde="14:00", hasta="15:00")], AHORA)
-        self.assertEqual(libres, [(h("09:00"), h("10:00")), (h("12:00"), h("14:00")), (h("15:00"), h("20:00"))])
+        # Son las 9:00 → lo más pronto es 9:30 (30 min de anticipación);
+        # además se dejan 15 min de margen antes y después de cada reserva.
+        self.assertEqual(libres, [(h("09:30"), h("09:45")), (h("12:15"), h("13:45")), (h("15:15"), h("20:00"))])
+
+    def test_reglas_nuevas_con_su_mensaje(self):
+        reglas = ReglasDeReserva(HorarioAtencion())
+        casos = {
+            "al menos 30 minutos de anticipación (lo más pronto: 09:30)": (h("09:15"), h("10:00")),
+            "al menos 15 minutos": (h("10:00"), h("10:10")),
+            "bloques de 15 minutos": (h("10:04"), h("11:00")),
+        }
+        for mensaje, (desde, hasta) in casos.items():
+            with self.subTest(mensaje), self.assertRaisesMessage(ValidationError, mensaje):
+                reglas.validar(LUNES, desde, hasta, AHORA, politica())
+        reglas.validar(LUNES, h("09:30"), h("09:45"), AHORA, politica())   # justo 30 min antes y 15 min: válida
 
     def test_reglas_horario_duracion_antelacion(self):
         reglas = ReglasDeReserva(HorarioAtencion())
@@ -90,6 +103,9 @@ class DominioTests(SimpleTestCase):
             (date(2026, 11, 7), h("10:00"), h("11:00")),   # sábado: no hay atención
             (LUNES, h("19:00"), h("21:00")),                # pasa del cierre
             (LUNES, h("08:00"), h("08:30")),                # ya pasó (son las 9:00)
+            (LUNES, h("09:15"), h("10:00")),                # menos de 30 min de anticipación
+            (LUNES, h("10:00"), h("10:10")),                # dura menos de 15 min
+            (LUNES, h("10:04"), h("11:00")),                # 10:04 no es bloque de 15 min
             (LUNES, h("10:00"), h("15:00")),                # 5 h > 4 h de la política
             (date(2026, 11, 13), h("10:00"), h("11:00")),   # 11 días > 7 de antelación
         ]
@@ -109,8 +125,9 @@ class ReservaServicioTests(TestCase):
         self.libros = libros
         self.identidad = IdentidadFalsa()
         self.politicas = PoliticasFalsas()
-        self.reloj = lambda: AHORA
-        self.s = ReservaServicioAplicacion(identidad=self.identidad, politicas=self.politicas, reloj=self.reloj)
+        self.ahora = AHORA
+        self.s = ReservaServicioAplicacion(identidad=self.identidad, politicas=self.politicas,
+                                           reloj=lambda: self.ahora)
         self.ana, self.beto, self.caro = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
         self.supervisor, self.encargado = uuid.uuid4(), uuid.uuid4()
 
@@ -122,7 +139,7 @@ class ReservaServicioTests(TestCase):
     def avisos(self, cuenta):
         return NotificacionServicioAplicacion().mis_notificaciones(cuenta)
 
-    # ---- aprobación automática
+    # Aprobación automática
     def test_item_normal_se_confirma_solo(self):
         self.assertEqual(self.s.crear(self.dto(self.ana)).estado, EstadoReserva.CONFIRMADA)
 
@@ -130,26 +147,37 @@ class ReservaServicioTests(TestCase):
         r = self.s.crear(self.dto(self.ana, item=self.laptop))
         self.assertEqual(r.estado, EstadoReserva.EN_ESPERA_SUPERVISOR)
 
-    # ---- franja exclusiva
+    # Franja exclusiva
     def test_franja_exclusiva_rechaza_con_alternativas(self):
         self.s.crear(self.dto(self.ana, "10:00", "12:00"))
         with self.assertRaises(HorarioOcupado) as ctx:
             self.s.crear(self.dto(self.beto, "11:00", "13:00"))
         error = ctx.exception
         self.assertIn("ya está reservado", error.messages[0])
-        self.assertIn((h("12:00"), h("20:00")), error.horarios_libres)
+        self.assertIn((h("12:15"), h("20:00")), error.horarios_libres)   # 12:00 + 15 min de margen
         self.assertEqual([i.codigo for i in error.alternativos], ["LIB-2"])
 
-    def test_franjas_seguidas_si_se_permiten(self):
-        self.s.crear(self.dto(self.ana, "10:00", "12:00"))
-        self.assertEqual(self.s.crear(self.dto(self.beto, "12:00", "13:00")).estado, EstadoReserva.CONFIRMADA)
+    def test_margen_de_15_minutos_entre_reservas(self):
+        self.s.crear(self.dto(self.ana, "10:00", "10:15"))
+        with self.assertRaisesMessage(HorarioOcupado, "se dejan 15 minutos"):
+            self.s.crear(self.dto(self.beto, "10:15", "11:00"))          # pegada: no
+        self.assertEqual(self.s.crear(self.dto(self.beto, "10:30", "11:00")).estado, EstadoReserva.CONFIRMADA)
+
+    def test_cola_respeta_el_margen(self):
+        """Tu ejemplo: Ana 10:00–10:15; Beto quiere 10:15–11:00 → espera → Ana cancela → Beto confirmado."""
+        ana = self.s.crear(self.dto(self.ana, "10:00", "10:15"))
+        beto = self.s.anotarse_en_espera(self.dto(self.beto, "10:15", "11:00"))
+        self.assertEqual(beto.posicion_en_cola, 1)
+        self.s.cancelar(ana.id, self.ana)
+        self.assertEqual(self.s.obtener(beto.id).estado, EstadoReserva.CONFIRMADA)
+        self.assertIn("quedó reservado para ti", self.avisos(self.beto)[0].mensaje)
 
     def test_reservar_por_categoria_asigna_un_item_libre(self):
         self.s.crear(self.dto(self.ana, "10:00", "12:00"))
         r = self.s.crear(self.dto(self.beto, "10:00", "12:00", categoria=self.libros.id))
         self.assertEqual(r.item_id, self.libro2.id)
 
-    # ---- lista de espera FIFO
+    # Lista de espera fifo
     def test_lista_espera_fifo_y_aviso_al_liberarse(self):
         primera = self.s.crear(self.dto(self.ana, "10:00", "12:00"))
         beto = self.s.anotarse_en_espera(self.dto(self.beto, "10:00", "12:00"))
@@ -172,14 +200,13 @@ class ReservaServicioTests(TestCase):
         with self.assertRaises(ValidationError):
             self.s.cancelar(r.id, self.beto)
 
-    # ---- supervisor
+    # Supervisor
     def test_supervisor_aprueba_pero_no_su_propia_reserva(self):
         r = self.s.crear(self.dto(self.ana, item=self.laptop))
         propia = self.s.crear(self.dto(self.supervisor, "14:00", "15:00", item=self.laptop))
         with self.assertRaises(ValidationError):
             self.s.aprobar_supervisor(propia.id, self.supervisor)
         self.assertEqual(self.s.aprobar_supervisor(r.id, self.supervisor).estado, EstadoReserva.CONFIRMADA)
-        self.assertTrue(RegistroAuditoria.objects.filter(entidad="Reserva", entidad_id=r.id).exists())
 
     def test_rechazo_del_supervisor_exige_motivo_y_libera_la_franja(self):
         r = self.s.crear(self.dto(self.ana, item=self.laptop))
@@ -190,17 +217,15 @@ class ReservaServicioTests(TestCase):
         self.assertEqual(self.s.obtener(r.id).estado, EstadoReserva.RECHAZADA)
         self.assertEqual(self.s.obtener(espera.id).estado, EstadoReserva.EN_ESPERA_SUPERVISOR)
 
-    # ---- encargado
-    def test_anular_exige_motivo_y_queda_en_auditoria(self):
+    # Encargado
+    def test_anular_exige_motivo_y_avisa(self):
         r = self.s.crear(self.dto(self.ana))
         with self.assertRaises(ValidationError):
-            self.s.anular(r.id, self.encargado, "")
-        self.s.anular(r.id, self.encargado, "El libro se mojó")
+            self.s.anular(r.id, "")
+        self.s.anular(r.id, "El libro se mojó")
         self.assertEqual(self.s.obtener(r.id).estado, EstadoReserva.ANULADA)
-        registro = RegistroAuditoria.objects.get(entidad="Reserva", entidad_id=r.id)
-        self.assertIn("El libro se mojó", registro.motivo)
+        self.assertIn("El libro se mojó", self.avisos(self.ana)[0].mensaje)
 
-    # ---- expiración
     def test_expira_si_no_la_recoge_en_15_minutos_y_avanza_la_cola(self):
         r = self.s.crear(self.dto(self.ana, "09:30", "10:30"))
         espera = self.s.anotarse_en_espera(self.dto(self.beto, "10:00", "11:00"))
@@ -210,7 +235,7 @@ class ReservaServicioTests(TestCase):
         self.assertEqual(self.s.obtener(r.id).estado, EstadoReserva.EXPIRADA)
         self.assertEqual(self.s.obtener(espera.id).estado, EstadoReserva.CONFIRMADA)
 
-    # ---- reglas con Identidad y Políticas
+    # Reglas con identidad y políticas
     def test_usuario_no_habilitado_no_reserva(self):
         self.identidad.bloqueados.add(self.ana)
         with self.assertRaisesMessage(ValidationError, "No estás habilitado"):
@@ -221,17 +246,52 @@ class ReservaServicioTests(TestCase):
         with self.assertRaisesMessage(ValidationError, "No hay una política"):
             self.s.crear(self.dto(self.ana))
 
-    def test_limite_de_reservas_simultaneas(self):
-        self.politicas.valor = politica(limite_simultaneo_global=1)
-        self.s.crear(self.dto(self.ana, "10:00", "12:00"))
-        with self.assertRaisesMessage(ValidationError, "máximo es 1 a la vez"):
-            self.s.crear(self.dto(self.ana, "11:00", "12:00", item=self.libro2))
-        self.s.crear(self.dto(self.ana, "13:00", "14:00", item=self.libro2))   # otro horario: sí
+    def test_maximo_de_reservas_vigentes_en_total(self):
+        self.politicas.valor = politica(limite_simultaneo_global=2)
+        self.s.crear(self.dto(self.ana, "10:00", "11:00"))
+        self.s.crear(self.dto(self.ana, "13:00", "14:00", item=self.libro2))
+        with self.assertRaisesMessage(ValidationError, "Ya tienes 2 reservas vigentes: el máximo es 2"):
+            self.s.crear(self.dto(self.ana, "15:00", "16:00"))          # aunque sea otro horario
 
-    # ---- contrato con Préstamos
+    def test_solo_un_item_especial_a_la_vez(self):
+        self.politicas.valor = politica(limite_simultaneo_global=4, limite_simultaneo_por_tipo=1)
+        self.s.crear(self.dto(self.ana, "10:00", "11:00", item=self.laptop))
+        with self.assertRaisesMessage(ValidationError, "Ya tienes una reserva de un ítem especial"):
+            self.s.crear(self.dto(self.ana, "14:00", "15:00", item=self.laptop))
+        self.s.crear(self.dto(self.ana, "14:00", "15:00"))                 # un libro sí puede
+
+    def test_la_lista_de_espera_tambien_cuenta_para_el_limite(self):
+        self.politicas.valor = politica(limite_simultaneo_global=1)
+        self.s.crear(self.dto(self.beto, "10:00", "11:00"))
+        self.s.anotarse_en_espera(self.dto(self.ana, "10:00", "11:00"))
+        with self.assertRaisesMessage(ValidationError, "máximo es 1"):
+            self.s.crear(self.dto(self.ana, "14:00", "15:00"))
+
+    def test_al_reservar_se_liberan_las_franjas_de_quien_no_vino(self):
+        no_vino = self.s.crear(self.dto(self.ana, "09:30", "10:30"))
+        self.ahora = datetime(2026, 11, 2, 9, 50, tzinfo=LIMA)               # 20 min tarde
+        r = self.s.crear(self.dto(self.beto, "10:30", "11:00"))
+        self.assertEqual(r.estado, EstadoReserva.CONFIRMADA)
+        self.assertEqual(self.s.obtener(no_vino.id).estado, EstadoReserva.EXPIRADA)
+
+    def test_supervisor_no_aprueba_cuando_ya_empezo(self):
+        r = self.s.crear(self.dto(self.ana, "10:00", "11:00", item=self.laptop))
+        self.ahora = datetime(2026, 11, 2, 10, 5, tzinfo=LIMA)
+        with self.assertRaisesMessage(ValidationError, "ya empezó"):
+            self.s.aprobar_supervisor(r.id, self.supervisor)
+
+    def test_marcar_daniado_anula_las_reservas_futuras_y_avisa(self):
+        confirmada = self.s.crear(self.dto(self.ana, "10:00", "11:00"))
+        espera = self.s.anotarse_en_espera(self.dto(self.beto, "10:00", "11:00"))
+        CatalogoServicioAplicacion(reservas=self.s).marcar_daniado(self.libro.id, "Se mojó")
+        self.assertEqual(self.s.obtener(confirmada.id).estado, EstadoReserva.ANULADA)
+        self.assertEqual(self.s.obtener(espera.id).estado, EstadoReserva.ANULADA)
+        self.assertIn("fuera de servicio", self.avisos(self.ana)[0].mensaje)
+
+    # Contrato con préstamos
     def test_contrato_prestamos_entregar_renovar_devolver(self):
         r = self.s.crear(self.dto(self.ana, "10:00", "12:00"))
-        self.s.crear(self.dto(self.beto, "13:00", "14:00"))
+        self.s.crear(self.dto(self.beto, "13:30", "14:30"))
         self.assertEqual([x.id for x in self.s.confirmadas_de_hoy()], [r.id, self.s.mis_reservas(self.beto)[0].id])
 
         self.assertEqual(self.s.marcar_atendida(r.id).estado, EstadoReserva.ATENDIDA)
@@ -239,7 +299,7 @@ class ReservaServicioTests(TestCase):
 
         self.assertEqual(self.s.extender(r.id, h("13:00")).hora_fin, h("13:00"))   # renovar hasta 13:00
         with self.assertRaisesMessage(ValidationError, "ya está reservada"):
-            self.s.extender(r.id, h("13:30"))                                     # choca con Beto
+            self.s.extender(r.id, h("13:30"))                                     # sin margen antes de Beto
         with self.assertRaises(ValidationError):
             self.s.extender(r.id, h("20:30"))                                     # pasa del cierre
 

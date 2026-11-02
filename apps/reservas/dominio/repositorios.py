@@ -25,8 +25,12 @@ class IReservaRepositorio(ABC):
     def de_solicitante(self, solicitante_id): ...
 
     @abstractmethod
-    def simultaneas_de(self, solicitante_id, fecha, desde, hasta, categoria_id=None):
-        """Cuántas reservas del solicitante ocupan una franja que se cruza con [desde, hasta)."""
+    def vigentes_de(self, solicitante_id, desde_fecha, categoria_ids=None):
+        """Cuántas reservas vigentes tiene el solicitante desde esa fecha (opcional: de esas categorías)."""
+
+    @abstractmethod
+    def futuras_del_item(self, item_id, desde_fecha):
+        """Reservas anulables del ítem desde esa fecha (si el ítem queda fuera de servicio)."""
 
     @abstractmethod
     def en_espera_supervisor(self): ...

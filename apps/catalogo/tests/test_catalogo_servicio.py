@@ -62,6 +62,14 @@ class CatalogoServicioTests(TestCase):
         with self.assertRaises(ValidationError):
             self.s.marcar_prestado(self.laptop.id)
 
+    def test_cambio_en_la_categoria_no_bloquea_los_estados(self):
+        """Si después se agrega un atributo obligatorio, los ítems viejos igual cambian de estado."""
+        from apps.catalogo.models import Categoria
+        categoria = Categoria.objects.get(pk=self.equipos.id)
+        categoria.definicion_atributos["ubicacion"] = {"tipo": "texto", "requerido": True}
+        categoria.save()
+        self.assertEqual(self.s.marcar_daniado(self.laptop.id, "Pantalla rota").estado, EstadoItem.MANTENIMIENTO)
+
     def test_historial_condicion_fisica(self):
         import datetime, uuid
         from apps.catalogo.aplicacion.dtos import NuevaCondicionDTO

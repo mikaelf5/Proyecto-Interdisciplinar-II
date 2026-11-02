@@ -23,6 +23,10 @@ class IItemRepositorio(ABC):
     def guardar(self, item): ...
 
     @abstractmethod
+    def guardar_estado(self, item):
+        """Guarda SOLO el estado y su motivo (no revalida los atributos)."""
+
+    @abstractmethod
     def buscar_por_id(self, item_id): ...
 
     @abstractmethod

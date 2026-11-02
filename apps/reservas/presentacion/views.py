@@ -157,6 +157,7 @@ class ReservarView(RolRequeridoMixin, View):
             "item": item, "form": form, "fecha": fecha,
             "agenda": servicio.agenda(item.id, fecha),
             "horario": servicio.horario.describir(),
+            "reglas": servicio.horario,
         }
 
 
@@ -228,7 +229,7 @@ class AnularView(RolRequeridoMixin, View):
             messages.error(request, "Indica el motivo de la anulación.")
             return _volver(request, "reservas:mias")
         try:
-            _servicio().anular(pk, request.user.id, form.cleaned_data["motivo"])
+            _servicio().anular(pk, form.cleaned_data["motivo"])
             messages.success(request, "Reserva anulada. Se avisó al solicitante.")
         except ValidationError as error:
             messages.error(request, _errores(error))

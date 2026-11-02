@@ -4,7 +4,7 @@ from django.db import connection
 
 from apps.common.choices import EstadoReserva
 
-from ..dominio.models import ESTADOS_QUE_OCUPAN, Reserva
+from ..dominio.models import ESTADOS_ANULABLES, ESTADOS_QUE_OCUPAN, ESTADOS_VIGENTES, Reserva
 from ..dominio.repositorios import IReservaRepositorio
 
 
@@ -42,14 +42,16 @@ class ReservaRepositorioImpl(IReservaRepositorio):
         return list(Reserva.objects.filter(solicitante_id=solicitante_id)
                     .order_by("-fecha", "-hora_inicio"))
 
-    def simultaneas_de(self, solicitante_id, fecha, desde, hasta, categoria_id=None):
-        qs = Reserva.objects.filter(
-            solicitante_id=solicitante_id, fecha=fecha, estado__in=ESTADOS_QUE_OCUPAN,
-            hora_inicio__lt=hasta, hora_fin__gt=desde,   # se cruzan
-        )
-        if categoria_id:
-            qs = qs.filter(categoria_id=categoria_id)
+    def vigentes_de(self, solicitante_id, desde_fecha, categoria_ids=None):
+        qs = Reserva.objects.filter(solicitante_id=solicitante_id, fecha__gte=desde_fecha,
+                                    estado__in=ESTADOS_VIGENTES)
+        if categoria_ids is not None:
+            qs = qs.filter(categoria_id__in=categoria_ids)
         return qs.count()
+
+    def futuras_del_item(self, item_id, desde_fecha):
+        return list(Reserva.objects.filter(item_id=item_id, fecha__gte=desde_fecha,
+                                           estado__in=ESTADOS_ANULABLES).order_by("fecha", "hora_inicio"))
 
     def en_espera_supervisor(self):
         return list(Reserva.objects.filter(estado=EstadoReserva.EN_ESPERA_SUPERVISOR)

@@ -164,7 +164,7 @@ class PonerDisponibleView(_AccionEncargadoView):
 
 class MarcarDaniadoView(_AccionEncargadoView):
     """Botón "Marcar dañado" (con motivo) → servicio.marcar_daniado (ItemController.marcarDaniado)."""
-    mensaje_ok = "El ítem pasó a mantenimiento."
+    mensaje_ok = "El ítem pasó a mantenimiento. Sus reservas futuras se anularon y se avisó a cada solicitante."
 
     def ejecutar(self, request, pk):
         catalogo.marcar_daniado(pk, request.POST.get("motivo", ""))
@@ -172,7 +172,7 @@ class MarcarDaniadoView(_AccionEncargadoView):
 
 class DarDeBajaView(_AccionEncargadoView):
     """Botón "Dar de baja" (con motivo) → servicio.dar_de_baja_item."""
-    mensaje_ok = "El ítem fue dado de baja."
+    mensaje_ok = "El ítem fue dado de baja. Sus reservas futuras se anularon y se avisó a cada solicitante."
 
     def ejecutar(self, request, pk):
         catalogo.dar_de_baja_item(pk, request.POST.get("motivo", ""))
