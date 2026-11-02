@@ -1,0 +1,5 @@
+{# Uso: {% include "identidad/_etiqueta.html" with etiqueta=perfil.etiqueta texto=perfil.get_etiqueta_display %} #}
+{% if etiqueta == "FRECUENTE" %}<span class="badge text-bg-primary">{{ texto }}</span>
+{% elif etiqueta == "SANCIONADO" %}<span class="badge text-bg-warning">{{ texto }}</span>
+{% elif etiqueta == "BANEADO" %}<span class="badge text-bg-danger">{{ texto }}</span>
+{% else %}<span class="badge text-bg-light border">{{ texto }}</span>{% endif %}

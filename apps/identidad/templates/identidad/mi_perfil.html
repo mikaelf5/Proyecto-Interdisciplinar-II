@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">Mi perfil</h1>
+    {% if perfil %}{% include "identidad/_etiqueta.html" with etiqueta=perfil.etiqueta texto=perfil.get_etiqueta_display %}{% endif %}
+</div>
+
+{% if habilitacion is not None %}
+    {% if habilitacion %}
+        <div class="alert alert-success">Puedes solicitar préstamos y hacer reservas.</div>
+    {% else %}
+        <div class="alert alert-warning"><b>Aún no puedes solicitar préstamos:</b> {{ habilitacion.mensaje }}</div>
+    {% endif %}
+{% endif %}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Mis datos</h2>
+            <dl class="row small mb-0">
+                <dt class="col-4">Nombres</dt><dd class="col-8">{{ cuenta.nombres }}</dd>
+                <dt class="col-4">DNI</dt><dd class="col-8">{{ cuenta.dni }}</dd>
+                <dt class="col-4">Correo</dt><dd class="col-8">{{ cuenta.correo }}</dd>
+                <dt class="col-4">Roles</dt><dd class="col-8">{{ cuenta.roles_legibles|join:", "|default:"—" }}</dd>
+                {% if perfil %}
+                <dt class="col-4">Tipo</dt><dd class="col-8">{{ perfil.get_tipo_display }}</dd>
+                <dt class="col-4">CUI</dt><dd class="col-8">{{ perfil.cui|default:"—" }}</dd>
+                <dt class="col-4">Acta firmada</dt>
+                <dd class="col-8">{% if perfil.acta_firmada %}{{ perfil.acta_version }} · {{ perfil.acta_fecha_firma|date:"d/m/Y" }}{% else %}No{% endif %}</dd>
+                {% endif %}
+                <dt class="col-4">Datos personales</dt>
+                <dd class="col-8">{% if cuenta.dio_consentimiento %}Consentimiento {{ cuenta.consentimiento_version }} · {{ cuenta.consentimiento_fecha|date:"d/m/Y" }}{% else %}Sin consentimiento registrado{% endif %}</dd>
+            </dl>
+            <p class="small text-muted mt-3 mb-0">Para corregir nombres, DNI o correo, acércate al administrador (Ley 29733: derecho de rectificación).</p>
+        </div>
+        <a href="{% url 'identidad:password_change' %}" class="btn btn-outline-secondary btn-sm">Cambiar contraseña</a>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Datos de contacto</h2>
+            <form method="post" novalidate>
+                {% csrf_token %}
+                {% include "includes/campo.html" with campo=form.celular %}
+                {% include "includes/campo.html" with campo=form.direccion %}
+                <button class="btn btn-primary btn-sm">Guardar</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

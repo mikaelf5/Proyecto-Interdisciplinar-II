@@ -34,8 +34,8 @@ class CuentaChangeForm(forms.ModelForm):
     class Meta:
         model = Cuenta
         fields = (
-            "correo", "nombres", "dni", "celular", "direccion", "roles",
-            "is_active", "is_staff", "is_superuser", "groups", "user_permissions",
+            "correo", "nombres", "dni", "celular", "direccion",
+            "is_superuser", "groups", "user_permissions",
         )
 
 
@@ -52,10 +52,14 @@ class CuentaAdmin(UserAdmin):
     fieldsets = (
         (None, {"fields": ("correo", "password")}),
         ("Datos personales", {"fields": ("nombres", "dni", "celular", "direccion")}),
-        ("Roles del dominio", {"fields": ("roles",)}),
-        ("Permisos", {"fields": ("is_active", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        ("Datos personales — Ley 29733", {"fields": ("consentimiento_version", "consentimiento_fecha")}),
+        ("Roles y estado (se cambian en /identidad/cuentas/ para que queden en auditoría)",
+         {"fields": ("roles", "is_active", "is_staff")}),
+        ("Permisos", {"fields": ("is_superuser", "groups", "user_permissions")}),
         ("Fechas", {"fields": ("last_login",)}),
     )
+    readonly_fields = ("roles", "is_active", "is_staff", "consentimiento_version",
+                       "consentimiento_fecha", "last_login")
     add_fieldsets = (
         (None, {"classes": ("wide",),
                 "fields": ("correo", "nombres", "dni", "password1", "password2")}),
@@ -68,4 +72,6 @@ class PerfilSolicitanteAdmin(admin.ModelAdmin):
     list_filter = ("tipo", "etiqueta", "habilitado_institucional")
     search_fields = ("cuenta__nombres", "cuenta__correo", "cui")
     autocomplete_fields = ("cuenta",)
-    readonly_fields = ("id", "creado_en", "actualizado_en")
+    # Etiqueta, acta y habilitación se cambian por los casos de uso (quedan en auditoría).
+    readonly_fields = ("id", "creado_en", "actualizado_en", "etiqueta",
+                       "acta_version", "acta_fecha_firma", "habilitado_institucional")
