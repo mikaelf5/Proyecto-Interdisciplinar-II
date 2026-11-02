@@ -7,6 +7,14 @@
     <h2>Nueva solicitud de préstamo</h2>
 
     <hr>
+    
+    {% if item %}
+        <div class="alert alert-info">
+            Ítem: <strong>{{ item.nombre }}</strong> (<code>{{ item.codigo }}</code> · {{ item.categoria_nombre }})
+            {% if item.categoria_es_especial %}<span class="badge bg-warning text-dark">Requiere supervisor</span>{% endif %}
+        </div>
+    {% endif %}
+
 
     <form method="post">
 

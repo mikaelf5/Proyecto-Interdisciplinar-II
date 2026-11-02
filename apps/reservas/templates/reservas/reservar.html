@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Reservar {{ item.codigo }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'catalogo:detalle' item.id %}" class="btn btn-link px-0 mb-2">← Volver al ítem</a>
+<h1 class="h4 mb-1">Reservar · {{ item.nombre }} <small class="text-muted">({{ item.codigo }})</small></h1>
+<p class="text-muted small mb-3">
+    Se usa en un solo día, dentro del horario de atención: {{ horario }}.
+    {% if item.categoria_es_especial %}<span class="badge bg-warning text-dark">Ítem especial: lo aprueba un supervisor</span>{% endif %}
+</p>
+
+{% if conflicto %}
+<div class="alert alert-danger">
+    <strong>{{ conflicto.messages.0 }}</strong>
+    {% if conflicto.horarios_libres %}
+        <div class="mt-2">Horarios libres ese día:
+            {% for desde, hasta in conflicto.horarios_libres %}
+                <span class="badge text-bg-light border">{{ desde|time:"H:i" }}–{{ hasta|time:"H:i" }}</span>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="mt-2">No quedan horarios libres ese día.</div>
+    {% endif %}
+
+    {% if conflicto.alternativos %}
+        <div class="mt-2">Otros ítems de la misma categoría libres en ese horario:</div>
+        <div class="d-flex flex-wrap gap-2 mt-1">
+        {% for alt in conflicto.alternativos %}
+            <form method="post" action="{% url 'reservas:reservar' alt.id %}">{% csrf_token %}
+                <input type="hidden" name="fecha" value="{{ form.data.fecha }}">
+                <input type="hidden" name="hora_inicio" value="{{ form.data.hora_inicio }}">
+                <input type="hidden" name="hora_fin" value="{{ form.data.hora_fin }}">
+                <input type="hidden" name="finalidad" value="{{ form.data.finalidad }}">
+                <button class="btn btn-sm btn-success">Reservar {{ alt.codigo }} ({{ alt.nombre }})</button>
+            </form>
+        {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" class="mt-3">{% csrf_token %}
+        <input type="hidden" name="fecha" value="{{ form.data.fecha }}">
+        <input type="hidden" name="hora_inicio" value="{{ form.data.hora_inicio }}">
+        <input type="hidden" name="hora_fin" value="{{ form.data.hora_fin }}">
+        <input type="hidden" name="finalidad" value="{{ form.data.finalidad }}">
+        <input type="hidden" name="accion" value="espera">
+        <button class="btn btn-outline-dark btn-sm">🔔 Avisarme si se libera este horario</button>
+        <span class="small ms-2">o cambia el horario abajo y vuelve a reservar.</span>
+    </form>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <form method="post" class="card card-body" novalidate>{% csrf_token %}
+            <input type="hidden" name="accion" value="reservar">
+            {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+            {% include "includes/campo.html" with campo=form.fecha %}
+            <div class="row">
+                <div class="col">{% include "includes/campo.html" with campo=form.hora_inicio %}</div>
+                <div class="col">{% include "includes/campo.html" with campo=form.hora_fin %}</div>
+            </div>
+            {% include "includes/campo.html" with campo=form.finalidad %}
+            <button class="btn btn-primary">Reservar</button>
+        </form>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="h6 mb-0">Disponibilidad del {{ fecha|date:"d/m/Y" }}</h2>
+                <form method="get" class="d-flex gap-1">
+                    <input type="date" name="fecha" value="{{ fecha|date:'Y-m-d' }}" class="form-control form-control-sm">
+                    <button class="btn btn-sm btn-outline-secondary">Ver</button>
+                </form>
+            </div>
+            {% if not agenda.atiende %}
+                <p class="text-muted small mb-0">Ese día no hay atención.</p>
+            {% else %}
+                <div class="small text-muted">Reservado:</div>
+                {% for r in agenda.ocupadas %}
+                    <span class="badge text-bg-secondary">{{ r.hora_inicio|time:"H:i" }}–{{ r.hora_fin|time:"H:i" }}</span>
+                {% empty %}<span class="small">Nada todavía.</span>{% endfor %}
+                <div class="small text-muted mt-2">Libre:</div>
+                {% for desde, hasta in agenda.libres %}
+                    <span class="badge text-bg-success">{{ desde|time:"H:i" }}–{{ hasta|time:"H:i" }}</span>
+                {% empty %}<span class="small">Sin horarios libres.</span>{% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

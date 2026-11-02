@@ -61,3 +61,73 @@ class CatalogoServicioTests(TestCase):
         self.s.marcar_daniado(self.laptop.id, "Pantalla rota")
         with self.assertRaises(ValidationError):
             self.s.marcar_prestado(self.laptop.id)
+
+    def test_historial_condicion_fisica(self):
+        import datetime, uuid
+        from apps.catalogo.aplicacion.dtos import NuevaCondicionDTO
+        prestamo, encargado = uuid.uuid4(), uuid.uuid4()
+        self.s.registrar_condicion(NuevaCondicionDTO(self.laptop.id, prestamo, encargado, "ENTREGA",
+                                                     datetime.date(2026, 11, 2), "Sin rayones"))
+        self.s.registrar_condicion(NuevaCondicionDTO(self.laptop.id, prestamo, encargado, "DEVOLUCION",
+                                                     datetime.date(2026, 11, 3), "Tecla suelta"))
+        historial = self.s.historial_condicion(self.laptop.id)
+        self.assertEqual([h.momento for h in historial], ["DEVOLUCION", "ENTREGA"])  # más reciente primero
+
+
+class CatalogoPermisosTests(TestCase):
+    """Cambiar el estado de un ítem es solo para ENCARGADO o ADMINISTRADOR."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from apps.common.choices import RolSistema
+        Cuenta = get_user_model()
+        self.ana = Cuenta.objects.create_user("ana@t.pe", "Ana", "1", "x", roles=[RolSistema.SOLICITANTE])
+        self.elena = Cuenta.objects.create_user("elena@t.pe", "Elena", "2", "x", roles=[RolSistema.ENCARGADO])
+        s = CatalogoServicioAplicacion()
+        cat = s.crear_categoria("Libros")
+        self.item = s.registrar_item(NuevoItemDTO(codigo="LIB-5", categoria_id=cat.id))
+
+    def test_solicitante_ve_el_detalle_pero_no_cambia_estados(self):
+        self.client.force_login(self.ana)
+        self.assertContains(self.client.get(f"/catalogo/{self.item.id}/"), "Reservar este ítem")
+        r = self.client.post(f"/catalogo/{self.item.id}/daniado/", {"motivo": "x"})
+        self.assertEqual(r.status_code, 403)
+
+    def test_encargado_marca_daniado(self):
+        self.client.force_login(self.elena)
+        self.assertContains(self.client.get(f"/catalogo/{self.item.id}/"), "Acciones del encargado")
+        self.client.post(f"/catalogo/{self.item.id}/daniado/", {"motivo": "Hojas rotas"})
+        self.assertEqual(CatalogoServicioAplicacion().obtener_item(self.item.id).estado, EstadoItem.MANTENIMIENTO)
+
+
+class RegistrarItemVistaTests(TestCase):
+    """Pantalla 'Registrar ítem': solo ADMINISTRADOR, con campos según la categoría."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from apps.common.choices import RolSistema
+        Cuenta = get_user_model()
+        self.admin = Cuenta.objects.create_user("adm@t.pe", "Adm", "1", "x", roles=[RolSistema.ADMINISTRADOR])
+        self.ana = Cuenta.objects.create_user("ana@t.pe", "Ana", "2", "x", roles=[RolSistema.SOLICITANTE])
+        self.cat = CatalogoServicioAplicacion().crear_categoria("Libros", definicion_atributos={
+            "titulo": {"tipo": "texto", "requerido": True},
+            "anio": {"tipo": "entero", "requerido": False},
+        })
+
+    def test_solo_admin(self):
+        self.client.force_login(self.ana)
+        self.assertEqual(self.client.get("/catalogo/nuevo/").status_code, 403)
+
+    def test_registra_con_atributos_de_la_categoria(self):
+        self.client.force_login(self.admin)
+        r = self.client.get(f"/catalogo/nuevo/?categoria={self.cat.id}")
+        self.assertContains(r, 'name="attr_titulo"')
+        self.client.post("/catalogo/nuevo/", {"categoria": self.cat.id, "codigo": "lib-100",
+                                              "attr_titulo": "Álgebra", "attr_anio": "2020"})
+        item = CatalogoServicioAplicacion().buscar_items(FiltrosItem(texto="LIB-100"))[0]
+        self.assertEqual(item.atributos, {"titulo": "Álgebra", "anio": 2020})
+
+    def test_falta_obligatorio_muestra_error(self):
+        self.client.force_login(self.admin)
+        r = self.client.post("/catalogo/nuevo/", {"categoria": self.cat.id, "codigo": "LIB-101"})
+        self.assertContains(r, "obligatorio")

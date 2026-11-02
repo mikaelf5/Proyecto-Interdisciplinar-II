@@ -1,4 +1,10 @@
-"""Capa de PRESENTACIÓN — NotificacionController (PDF): misNotificaciones, marcarLeida."""
+"""
+Capa de PRESENTACIÓN — NotificacionController: misNotificaciones, marcarLeida.
+
+Mapa rápido (pantalla → URL → vista → servicio):
+    Notificaciones (menú) .. /notificaciones/              mis_notificaciones  mis_notificaciones
+    Marcar como leída ...... /notificaciones/<id>/leida/   marcar_leida        marcar_leida
+"""
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -12,6 +18,7 @@ notificaciones = NotificacionServicioAplicacion()
 
 @login_required
 def mis_notificaciones(request):
+    """Pantalla: menú "Notificaciones" → servicio.mis_notificaciones."""
     lista = notificaciones.mis_notificaciones(request.user.id)
     return render(request, "notificaciones/mis_notificaciones.html", {
         "notificaciones": lista,
@@ -22,6 +29,7 @@ def mis_notificaciones(request):
 @login_required
 @require_POST
 def marcar_leida(request, pk):
+    """Botón "Marcar como leída" → servicio.marcar_leida (solo el destinatario)."""
     try:
         notificaciones.marcar_leida(pk, destinatario_id=request.user.id)
     except ValidationError as e:

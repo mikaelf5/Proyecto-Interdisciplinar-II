@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Bandeja del supervisor{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Bandeja del supervisor</h1>
+<p class="text-muted small mb-3">Reservas de ítems especiales que esperan tu aprobación. No puedes aprobar tus propias reservas.</p>
+<div class="card">
+    <div class="table-responsive">
+    <table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th>Ítem</th><th>Solicitante</th><th>Día y horario</th><th>Finalidad</th><th class="text-end">Decisión</th></tr></thead>
+        <tbody>
+        {% for r, item, nombre in filas %}
+            <tr>
+                <td>{% if item %}<a href="{% url 'catalogo:detalle' item.id %}">{{ item.codigo }}</a> · {{ item.nombre }}{% endif %}</td>
+                <td>{{ nombre }}{% if r.solicitante_id == user.id %} <span class="badge bg-info">Tú</span>{% endif %}</td>
+                <td>{{ r.fecha|date:"D d/m/Y" }} · {{ r.hora_inicio|time:"H:i" }}–{{ r.hora_fin|time:"H:i" }}</td>
+                <td class="small">{{ r.finalidad|default:"—" }}</td>
+                <td class="text-end">
+                    {% if r.solicitante_id == user.id %}
+                        <span class="small text-muted">Debe revisarla otro supervisor</span>
+                    {% else %}
+                    <div class="d-flex justify-content-end gap-1">
+                        <form method="post" action="{% url 'reservas:aprobar' r.id %}">{% csrf_token %}
+                            <button class="btn btn-sm btn-success">Aprobar</button>
+                        </form>
+                        <form method="post" action="{% url 'reservas:rechazar' r.id %}" class="d-flex gap-1">{% csrf_token %}
+                            <input name="motivo" class="form-control form-control-sm" placeholder="Motivo" required>
+                            <button class="btn btn-sm btn-outline-danger">Rechazar</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No hay reservas pendientes.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

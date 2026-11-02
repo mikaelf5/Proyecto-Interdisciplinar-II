@@ -28,6 +28,24 @@ class SolicitudCreateView(LoginRequiredMixin, CreateView):
     template_name = "circulacion/solicitud_form.html"
     success_url = reverse_lazy("circulacion:solicitudes")
 
+    def get_initial(self):
+        inicial = super().get_initial()
+        item_id = self.request.GET.get("item")
+        if item_id:
+            inicial["item_id"] = item_id
+        return inicial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        item_id = self.request.GET.get("item")
+        if item_id:
+            from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
+            try:
+                ctx["item"] = CatalogoServicioAplicacion().obtener_item(item_id)
+            except ValidationError:
+                ctx["item"] = None
+        return ctx
+
     def form_valid(self, form):
         datos = form.cleaned_data
         dto = SolicitudDTO(
@@ -43,8 +61,9 @@ class SolicitudCreateView(LoginRequiredMixin, CreateView):
         except ValidationError as error:
             form.add_error(None, error)
             return self.form_invalid(form)
-        # FormMixin.form_valid redirige sin volver a guardar el ModelForm.
-        return super(CreateView, self).form_valid(form)
+        
+        messages.success(self.request, "Solicitud registrada.")
+        return redirect(self.get_success_url())
 
 
 class SolicitudDetailView(LoginRequiredMixin, DetailView):

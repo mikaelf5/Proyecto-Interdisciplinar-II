@@ -14,28 +14,50 @@ from datetime import date
 
 from django.core.exceptions import ValidationError
 
-TIPOS = {"texto", "entero", "numero", "booleano", "fecha", "opcion"}
+def _es_texto(valor, regla):
+    return isinstance(valor, str)
+
+
+def _es_entero(valor, regla):
+    return isinstance(valor, int) and not isinstance(valor, bool)
+
+
+def _es_numero(valor, regla):
+    return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+
+
+def _es_booleano(valor, regla):
+    return isinstance(valor, bool)
+
+
+def _es_fecha(valor, regla):
+    try:
+        date.fromisoformat(str(valor))
+        return True
+    except ValueError:
+        return False
+
+
+def _es_opcion(valor, regla):
+    return valor in regla.get("opciones", [])
+
+
+# Cada tipo de atributo tiene su verificador. Para agregar un tipo nuevo basta
+# con agregar una línea aquí (sin tocar el resto del código).
+VERIFICADORES = {
+    "texto": _es_texto,
+    "entero": _es_entero,
+    "numero": _es_numero,
+    "booleano": _es_booleano,
+    "fecha": _es_fecha,
+    "opcion": _es_opcion,
+}
+TIPOS = set(VERIFICADORES)
 
 
 def _es_del_tipo(valor, regla):
-    tipo = regla.get("tipo", "texto")
-    if tipo == "texto":
-        return isinstance(valor, str)
-    if tipo == "entero":
-        return isinstance(valor, int) and not isinstance(valor, bool)
-    if tipo == "numero":
-        return isinstance(valor, (int, float)) and not isinstance(valor, bool)
-    if tipo == "booleano":
-        return isinstance(valor, bool)
-    if tipo == "fecha":
-        try:
-            date.fromisoformat(str(valor))
-            return True
-        except ValueError:
-            return False
-    if tipo == "opcion":
-        return valor in regla.get("opciones", [])
-    return False
+    verificador = VERIFICADORES.get(regla.get("tipo", "texto"))
+    return verificador is not None and verificador(valor, regla)
 
 
 def validar_atributos(atributos, definicion):
