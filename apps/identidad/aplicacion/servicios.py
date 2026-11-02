@@ -39,6 +39,7 @@ from apps.identidad.dominio.repositorio import (
 from apps.identidad.dominio.validadores import (
     error_de,
     validar_celular,
+    validar_correo_institucional,
     validar_cui,
     validar_dni,
 )
@@ -173,6 +174,8 @@ class CuentaServicioAplicacion(ICuentaServicio):
         correo = (dto.correo or "").strip()
         if not correo:
             errores["correo"] = "Ingresa el correo."
+        elif error_de(validar_correo_institucional, correo):
+            errores["correo"] = error_de(validar_correo_institucional, correo)
         elif self._cuentas.por_correo(correo) is not None:
             errores["correo"] = "Ya existe una cuenta con ese correo."
         if dto.celular:

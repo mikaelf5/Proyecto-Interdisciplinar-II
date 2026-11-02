@@ -354,20 +354,58 @@ class MenuPorRolTests(TestCase):
         self.assertNotIn("Mis reservas", html)
 
 
+class CorreoInstitucionalTests(TestCase):
+    """Requisito: solo correos de la universidad (@unsa.edu.pe)."""
+
+    def setUp(self):
+        self.client.force_login(crear("admin@unsa.edu.pe", "70000000", [RolSistema.ADMINISTRADOR]))
+
+    def test_rechaza_correo_externo_en_el_registro(self):
+        for correo in ("luis@gmail.com", "luis@unsa.edu.pe.com", "luis@alumnos.unsa.edu.pe"):
+            respuesta = self.client.post(reverse("identidad:registrar"), datos_registro(correo=correo))
+            self.assertContains(respuesta, "@unsa.edu.pe", msg_prefix=correo)
+            self.assertFalse(Cuenta.objects.filter(correo=correo).exists())
+
+    def test_acepta_mayusculas(self):
+        self.client.post(reverse("identidad:registrar"), datos_registro(correo="LQuispe@UNSA.edu.pe"))
+        self.assertTrue(Cuenta.objects.filter(correo="lquispe@unsa.edu.pe").exists())
+
+    def test_tambien_en_el_panel_admin(self):
+        from apps.identidad.admin import CuentaCreationForm
+        form = CuentaCreationForm(data={"correo": "x@gmail.com", "nombres": "X", "dni": "71111111",
+                                        "password1": "Clave-Segura-1", "password2": "Clave-Segura-1"})
+        self.assertFalse(form.is_valid())
+        self.assertIn("correo", form.errors)
+
+
 class SeedCuentasTests(TestCase):
+    def seed(self):
+        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
+
     def test_crea_una_por_rol_y_se_puede_repetir(self):
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
+        self.seed()
+        self.seed()
         self.assertEqual(Cuenta.objects.count(), 6)
+        self.assertEqual(Cuenta.objects.filter(correo__endswith="@unsa.edu.pe").count(), 6)
         for rol in RolSistema.values:
             self.assertTrue(Cuenta.objects.filter(roles__contains=[rol]).exists(), rol)
         respuesta = self.client.post(reverse("identidad:login"),
-                                     {"correo": "ana@demo.pe", "password": "demo1234"})
+                                     {"correo": "ana@unsa.edu.pe", "password": "demo1234"})
         self.assertRedirects(respuesta, reverse("home"))
-        self.assertTrue(cuenta_servicio().consultar_habilitacion(Cuenta.objects.get(correo="ana@demo.pe").pk))
-        self.assertFalse(cuenta_servicio().consultar_habilitacion(Cuenta.objects.get(correo="pedro@demo.pe").pk))
+        self.assertTrue(cuenta_servicio().consultar_habilitacion(Cuenta.objects.get(correo="ana@unsa.edu.pe").pk))
+        self.assertFalse(cuenta_servicio().consultar_habilitacion(Cuenta.objects.get(correo="pedro@unsa.edu.pe").pk))
 
-    def test_convive_con_seed_demo(self):
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
+    def test_convierte_las_cuentas_viejas_de_demo_pe(self):
+        """Quien ya corrió el seed_demo anterior tenía ana@demo.pe con el mismo DNI."""
+        vieja = Cuenta.objects.create_user("ana@demo.pe", "Ana Alumna", "79000002", "x", roles=["SOLICITANTE"])
+        self.seed()
+        vieja.refresh_from_db()
+        self.assertEqual(vieja.correo, "ana@unsa.edu.pe")
+        self.assertEqual(Cuenta.objects.count(), 6)
+        self.assertFalse(Cuenta.objects.filter(correo__endswith="@demo.pe").exists())
+
+    def test_seed_demo_usa_las_mismas_cuentas(self):
+        self.seed()
         call_command("seed_demo", stdout=open("/dev/null", "w"))
-        self.assertEqual(Cuenta.objects.filter(correo__endswith="@demo.pe").count(), 6)
+        self.assertEqual(Cuenta.objects.count(), 6)
+        self.assertFalse(Cuenta.objects.get(correo="admin@unsa.edu.pe").is_superuser)

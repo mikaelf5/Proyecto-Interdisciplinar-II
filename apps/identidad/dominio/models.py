@@ -23,7 +23,12 @@ from apps.common.models import BaseModel
 
 from .excepciones import ActaYaFirmada, RolInvalido
 from .hasher import IPasswordHasher
-from .validadores import validar_celular, validar_cui, validar_dni
+from .validadores import (
+    validar_celular,
+    validar_correo_institucional,
+    validar_cui,
+    validar_dni,
+)
 
 # Roles que son "personal" de la escuela (no solo solicitantes).
 ROLES_PERSONAL = (RolSistema.ADMINISTRADOR, RolSistema.ENCARGADO, RolSistema.SUPERVISOR)
@@ -60,7 +65,7 @@ class Cuenta(AbstractBaseUser, PermissionsMixin, BaseModel):
     nombres = models.CharField(max_length=150)
     dni = models.CharField("DNI", max_length=15, unique=True, validators=[validar_dni])
     # --- VO Contacto embebido ---
-    correo = models.EmailField("correo", unique=True)
+    correo = models.EmailField("correo", unique=True, validators=[validar_correo_institucional])
     celular = models.CharField(max_length=20, blank=True, validators=[validar_celular])
     direccion = models.CharField("dirección", max_length=255, blank=True)
     # --- roles del dominio (conjunto) ---

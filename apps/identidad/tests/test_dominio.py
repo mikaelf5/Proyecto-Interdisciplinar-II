@@ -7,7 +7,12 @@ from django.test import SimpleTestCase
 from apps.common.choices import EtiquetaEstado, RolSistema
 from apps.identidad.dominio.etiquetas import calcular_etiqueta
 from apps.identidad.dominio.excepciones import ActaYaFirmada, RolInvalido
-from apps.identidad.dominio.validadores import validar_celular, validar_cui, validar_dni
+from apps.identidad.dominio.validadores import (
+    validar_celular,
+    validar_correo_institucional,
+    validar_cui,
+    validar_dni,
+)
 
 from .falsos import nueva_cuenta, perfil_ok
 
@@ -50,6 +55,14 @@ class ValidadoresTests(SimpleTestCase):
         for malo in ("887654321", "98765432", "9876543210"):
             with self.assertRaises(ValidationError):
                 validar_celular(malo)
+
+    def test_correo_institucional(self):
+        for bueno in ("ana@unsa.edu.pe", "Ana.Perez@UNSA.EDU.PE"):
+            validar_correo_institucional(bueno)
+        for malo in ("ana@gmail.com", "ana@unsa.edu.pe.com", "ana@alumnos.unsa.edu.pe",
+                     "ana@unsaedu.pe", "@unsa.edu.pe", "unsa.edu.pe", ""):
+            with self.assertRaises(ValidationError, msg=malo):
+                validar_correo_institucional(malo)
 
     def test_cui(self):
         validar_cui("20230001")

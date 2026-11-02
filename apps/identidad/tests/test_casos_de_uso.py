@@ -91,6 +91,12 @@ class RegistrarCuentaTests(SimpleTestCase):
             servicio([existente]).registrar_cuenta(dto_solicitante(), uuid.uuid4())
         self.assertEqual(set(ctx.exception.errores), {"correo", "dni"})
 
+    def test_correo_debe_ser_institucional(self):
+        for correo in ("luis@gmail.com", "luis@unsa.edu.pe.com", "@unsa.edu.pe", "luis"):
+            with self.assertRaises(DatosInvalidos, msg=correo) as ctx:
+                servicio().registrar_cuenta(dto_solicitante(correo=correo), uuid.uuid4())
+            self.assertIn("@unsa.edu.pe", ctx.exception.errores["correo"])
+
     def test_junta_todos_los_errores(self):
         dto = dto_solicitante(nombres=" ", dni="123", celular="12345", roles=[],
                               consentimiento_aceptado=False)

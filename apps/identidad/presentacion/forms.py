@@ -9,7 +9,12 @@ from django.contrib.auth.password_validation import validate_password
 
 from apps.common.choices import RolSistema, TipoUsuario
 from apps.identidad.dominio.documentos import ACTA_RESPONSABILIDAD, CONSENTIMIENTO_DATOS
-from apps.identidad.dominio.validadores import validar_celular, validar_cui, validar_dni
+from apps.identidad.dominio.validadores import (
+    validar_celular,
+    validar_correo_institucional,
+    validar_cui,
+    validar_dni,
+)
 
 CONTROL = {"class": "form-control"}
 CHECK = {"class": "form-check-input"}
@@ -67,7 +72,10 @@ class RegistroCuentaForm(_PerfilCampos):
                               widget=forms.TextInput(attrs=CONTROL))
     dni = forms.CharField(label="DNI", max_length=8, validators=[validar_dni],
                           widget=forms.TextInput(attrs={**CONTROL, "inputmode": "numeric"}))
-    correo = forms.EmailField(label="Correo", widget=forms.EmailInput(attrs=CONTROL))
+    correo = forms.EmailField(
+        label="Correo institucional", validators=[validar_correo_institucional],
+        widget=forms.EmailInput(attrs={**CONTROL, "placeholder": "usuario@unsa.edu.pe"}),
+    )
     celular = forms.CharField(label="Celular", max_length=9, required=False,
                               validators=[validar_celular],
                               widget=forms.TextInput(attrs={**CONTROL, "inputmode": "numeric"}))
