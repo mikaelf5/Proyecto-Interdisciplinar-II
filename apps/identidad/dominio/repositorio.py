@@ -12,13 +12,25 @@ class ICuentaRepositorio(ABC):
         """Cuenta por correo (sin distinguir mayúsculas), o None."""
 
     @abstractmethod
+    def existe_dni(self, dni) -> bool: ...
+
+    @abstractmethod
+    def contar_activas_con_rol(self, rol) -> int: ...
+
+    @abstractmethod
     def guardar(self, cuenta): ...
 
     @abstractmethod
-    def listar(self, q=""): ...
+    def listar(self, q="", rol="", estado=""): ...
 
 
 class IPerfilSolicitanteRepositorio(ABC):
     @abstractmethod
     def de_cuenta(self, cuenta_id):
         """Perfil de la cuenta, o None si no tiene."""
+
+    @abstractmethod
+    def guardar(self, perfil): ...
+
+    @abstractmethod
+    def todos(self): ...
