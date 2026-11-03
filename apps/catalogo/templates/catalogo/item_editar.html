@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Editar {{ item.codigo }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'catalogo:detalle' item.id %}" class="btn btn-link px-0 mb-2">← Volver al ítem</a>
+<h1 class="h4 mb-3">Editar ítem</h1>
+
+<div class="row">
+    <div class="col-lg-7">
+        <form method="post" class="card card-body" novalidate>{% csrf_token %}
+            {# La categoría y el estado se muestran, pero no se cambian aquí #}
+            <p class="text-muted small mb-3">
+                Categoría: <strong>{{ item.categoria_nombre }}</strong> · Estado: <strong>{{ item.estado_display }}</strong>
+            </p>
+            {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+            {% include "includes/campo.html" with campo=form.codigo %}
+            {% for campo in form.campos_de_atributos %}
+                {% include "includes/campo.html" with campo=campo %}
+            {% empty %}
+                <p class="text-muted small">Esta categoría no define atributos.</p>
+            {% endfor %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary">Guardar cambios</button>
+                <a href="{% url 'catalogo:detalle' item.id %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
