@@ -8,6 +8,7 @@ Mapa rápido (pantalla → URL → vista → servicio):
     Buscar en el catálogo .. /catalogo/                  BuscarView          buscar_items
     Detalle del ítem ....... /catalogo/<id>/             DetalleView         obtener_item + historial_condicion
     Registrar ítem (admin) . /catalogo/nuevo/            RegistrarItemView   registrar_item
+    Editar ítem (admin) .... /catalogo/<id>/editar/      EditarItemView      editar_item
     Poner disponible ....... /catalogo/<id>/disponible/  PonerDisponibleView cambiar_estado_item
     Marcar dañado .......... /catalogo/<id>/daniado/     MarcarDaniadoView   marcar_daniado
     Dar de baja ............ /catalogo/<id>/baja/        DarDeBajaView       dar_de_baja_item
@@ -15,7 +16,7 @@ Mapa rápido (pantalla → URL → vista → servicio):
 Permisos por ROL (RolRequeridoMixin de Identidad):
     buscar y ver detalle → cualquier usuario con sesión;
     cambiar estado       → ENCARGADO o ADMINISTRADOR;
-    registrar ítems      → ADMINISTRADOR.
+    registrar y editar   → ADMINISTRADOR.
 """
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -28,7 +29,7 @@ from django.views import View
 from apps.common.choices import EstadoItem, RolSistema
 from apps.identidad.presentacion.permisos import RolRequeridoMixin
 
-from ..aplicacion.dtos import FiltrosItem, NuevoItemDTO
+from ..aplicacion.dtos import EdicionItemDTO, FiltrosItem, NuevoItemDTO
 from ..aplicacion.servicios import CatalogoServicioAplicacion
 from .forms import FiltroItemForm, ItemNuevoForm
 
@@ -43,6 +44,19 @@ def _errores(e):
 
 def _tiene_rol(usuario, *roles):
     return usuario.is_superuser or usuario.tiene_algun_rol(*roles)
+
+
+def _categoria(categoria_id):
+    return next((c for c in catalogo.listar_categorias() if str(c.id) == str(categoria_id)), None)
+
+
+def _codigo_escrito(form):
+    return form.cleaned_data["codigo"].strip().upper()
+
+
+def _mostrar_errores_en(form, error):
+    for mensaje in error.messages:
+        form.add_error(None, mensaje)
 
 
 class BuscarView(LoginRequiredMixin, View):
@@ -70,16 +84,13 @@ class RegistrarItemView(RolRequeridoMixin, View):
     roles_permitidos = [RolSistema.ADMINISTRADOR]
     template_name = "catalogo/item_form.html"
 
-    def _categoria(self, categoria_id):
-        return next((c for c in catalogo.listar_categorias() if str(c.id) == str(categoria_id)), None)
-
     def get(self, request):
-        categoria = self._categoria(request.GET.get("categoria", ""))
+        categoria = _categoria(request.GET.get("categoria", ""))
         form = ItemNuevoForm(definicion=categoria.definicion_atributos) if categoria else None
         return render(request, self.template_name, self._contexto(categoria, form))
 
     def post(self, request):
-        categoria = self._categoria(request.POST.get("categoria", ""))
+        categoria = _categoria(request.POST.get("categoria", ""))
         if categoria is None:
             messages.error(request, "Elige una categoría.")
             return redirect("catalogo:registrar")
@@ -87,20 +98,68 @@ class RegistrarItemView(RolRequeridoMixin, View):
         if form.is_valid():
             try:
                 item = catalogo.registrar_item(NuevoItemDTO(
-                    codigo=form.cleaned_data["codigo"].strip().upper(),
+                    codigo=_codigo_escrito(form),
                     categoria_id=categoria.id,
                     atributos=form.atributos(),
                 ))
                 messages.success(request, f"Ítem {item.codigo} registrado.")
                 return redirect("catalogo:detalle", pk=item.id)
             except ValidationError as e:
-                for mensaje in e.messages:
-                    form.add_error(None, mensaje)
+                _mostrar_errores_en(form, e)
         return render(request, self.template_name, self._contexto(categoria, form))
 
     @staticmethod
     def _contexto(categoria, form):
         return {"categorias": catalogo.listar_categorias(), "categoria": categoria, "form": form}
+
+
+class EditarItemView(RolRequeridoMixin, View):
+    """
+    Pantalla: botón "Editar" del detalle (solo ADMINISTRADOR) → servicio.editar_item.
+    Se corrigen el código y los atributos. La categoría no se cambia (de ella dependen
+    los atributos y las políticas) y el estado se cambia con los botones del encargado.
+    """
+    roles_permitidos = [RolSistema.ADMINISTRADOR]
+    template_name = "catalogo/item_editar.html"
+
+    def get(self, request, pk):
+        item = self._item(request, pk)
+        if item is None:
+            return redirect("catalogo:buscar")
+        form = ItemNuevoForm(initial=ItemNuevoForm.valores_actuales(item), definicion=self._definicion(item))
+        return render(request, self.template_name, {"item": item, "form": form})
+
+    def post(self, request, pk):
+        item = self._item(request, pk)
+        if item is None:
+            return redirect("catalogo:buscar")
+        form = ItemNuevoForm(request.POST, definicion=self._definicion(item))
+        if form.is_valid():
+            try:
+                catalogo.editar_item(EdicionItemDTO(item_id=item.id, codigo=_codigo_escrito(form),
+                                                    atributos=form.atributos()))
+                messages.success(request, "Cambios guardados.")
+                return redirect("catalogo:detalle", pk=item.id)
+            except ValidationError as e:
+                _mostrar_errores_en(form, e)
+        return render(request, self.template_name, {"item": item, "form": form})
+
+    @staticmethod
+    def _item(request, pk):
+        """El ítem a editar; si no existe o está de baja, avisa y devuelve None."""
+        try:
+            item = catalogo.obtener_item(pk)
+        except ValidationError as e:
+            messages.error(request, _errores(e))
+            return None
+        if item.estado == EstadoItem.BAJA:
+            messages.error(request, "Un ítem dado de baja ya no se puede editar.")
+            return None
+        return item
+
+    @staticmethod
+    def _definicion(item):
+        return _categoria(item.categoria_id).definicion_atributos
 
 
 class DetalleView(LoginRequiredMixin, View):
@@ -132,6 +191,7 @@ class DetalleView(LoginRequiredMixin, View):
             "agenda": agenda,
             "historial": [(h, responsables.get(h.responsable_id, "—")) for h in historial],
             "puede_gestionar": _tiene_rol(request.user, *ROLES_GESTION),
+            "puede_editar": _tiene_rol(request.user, RolSistema.ADMINISTRADOR) and item.estado != EstadoItem.BAJA,
             "puede_reservar": _tiene_rol(request.user, RolSistema.SOLICITANTE),
             "fuera_de_servicio": item.estado in (EstadoItem.BAJA, EstadoItem.MANTENIMIENTO),
         })

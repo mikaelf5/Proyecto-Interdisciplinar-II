@@ -343,12 +343,8 @@ class ReservaServicioAplicacion(IReservaServicio):
                 f"Elige otro horario.",
                 ocupada=ReservaDTO.desde(choque),
                 horarios_libres=self.calculadora.libres(dto.fecha, ocupadas, self.reloj()),
-                alternativos=self._alternativos(item, dto),
             )
 
-    def _alternativos(self, item, dto):
-        return [otro for otro in self._items_en_servicio(item.categoria_id)
-                if otro.id != item.id and self.franja_libre(otro.id, dto.fecha, dto.hora_inicio, dto.hora_fin)]
 
     def _verificar_limites(self, politica, item, dto):
         """Máximo de reservas vigentes en total y por clase de ítem (ej. 1 especial a la vez)."""
