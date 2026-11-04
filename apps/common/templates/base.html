@@ -94,6 +94,17 @@
                             </li>
                         {% endif %}
 
+                        {# --- Otras pantallas del personal (Sanciones, Pérdidas, Auditoría) --- #}
+                        {% if menu.es_encargado or menu.es_admin %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Más</a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{% url 'sanciones:lista' %}">Sanciones</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'perdidas:lista' %}">Pérdidas</a></li>
+                                    {% if menu.es_admin %}<li><a class="dropdown-item" href="{% url 'auditoria:lista' %}">Auditoría</a></li>{% endif %}
+                                </ul>
+                            </li>
+                        {% endif %}
 
                         <li class="nav-item"><a class="nav-link" href="{% url 'identidad:mi_perfil' %}">Mi perfil</a></li>
                         <li class="nav-item d-flex align-items-center ms-lg-3">
