@@ -345,21 +345,35 @@ class ReservaServicioAplicacion(IReservaServicio):
     def _verificar_franja_libre(self, item, dto):
         """Franja exclusiva: si choca, se rechaza ofreciendo horarios libres y otros ítems."""
         ocupadas = self.repositorio.ocupadas_de(item.id, dto.fecha)
-        choque = next((r for r in ocupadas if self._choca(r, dto.hora_inicio, dto.hora_fin)), None)
+        choque = next(
+            (r for r in ocupadas if self._choca(r, dto.hora_inicio, dto.hora_fin)),
+            None
+        )
+
         if choque:
+            # Buscar otros ítems de la misma categoría que estén disponibles.
+            alternativos = [
+                otro for otro in self._items_en_servicio(item.categoria_id)
+                if otro.id != item.id
+                   and self.franja_libre(
+                    otro.id,
+                    dto.fecha,
+                    dto.hora_inicio,
+                    dto.hora_fin
+                )
+            ]
+
             raise HorarioOcupado(
                 f"{item.codigo} ({item.nombre}) ya está reservado el {choque.fecha:%d/%m/%Y} "
                 f"de {choque.hora_inicio:%H:%M} a {choque.hora_fin:%H:%M}. Entre reservas se dejan "
                 f"{self.horario.margen_entre_reservas_min} minutos para recibir y revisar el ítem. "
                 f"Elige otro horario.",
                 ocupada=ReservaDTO.desde(choque),
-                horarios_libres=self.calculadora.libres(dto.fecha, ocupadas, self.reloj()),
-                alternativos=self._alternativos(item, dto),
+                horarios_libres=self.calculadora.libres(
+                    dto.fecha, ocupadas, self.reloj()
+                ),
+                alternativos=alternativos,
             )
-
-    def _alternativos(self, item, dto):
-        return [otro for otro in self._items_en_servicio(item.categoria_id)
-                if otro.id != item.id and self.franja_libre(otro.id, dto.fecha, dto.hora_inicio, dto.hora_fin)]
 
     def _verificar_limites(self, politica, item, dto):
         """Máximo de reservas vigentes en total y por clase de ítem (ej. 1 especial a la vez)."""

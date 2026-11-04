@@ -139,3 +139,58 @@ class RegistrarItemVistaTests(TestCase):
         self.client.force_login(self.admin)
         r = self.client.post("/catalogo/nuevo/", {"categoria": self.cat.id, "codigo": "LIB-101"})
         self.assertContains(r, "obligatorio")
+
+
+class EditarItemTests(TestCase):
+    """Pantalla 'Editar ítem': solo ADMINISTRADOR; corrige código y atributos."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from apps.common.choices import RolSistema
+        Cuenta = get_user_model()
+        self.admin = Cuenta.objects.create_user("adm@t.pe", "Adm", "1", "x", roles=[RolSistema.ADMINISTRADOR])
+        self.encargado = Cuenta.objects.create_user("enc@t.pe", "Enc", "2", "x", roles=[RolSistema.ENCARGADO])
+        self.s = CatalogoServicioAplicacion()
+        cat = self.s.crear_categoria("Libros", definicion_atributos={
+            "titulo": {"tipo": "texto", "requerido": True},
+            "anio": {"tipo": "entero", "requerido": False},
+        })
+        self.libro = self.s.registrar_item(NuevoItemDTO(codigo="LIB-001", categoria_id=cat.id,
+                                                        atributos={"titulo": "Algebra", "anio": 2019}))
+        self.s.registrar_item(NuevoItemDTO(codigo="LIB-002", categoria_id=cat.id, atributos={"titulo": "Física"}))
+        self.url = f"/catalogo/{self.libro.id}/editar/"
+
+    def test_solo_admin(self):
+        self.client.force_login(self.encargado)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+
+    def test_formulario_aparece_lleno(self):
+        self.client.force_login(self.admin)
+        r = self.client.get(self.url)
+        self.assertContains(r, 'value="LIB-001"')
+        self.assertContains(r, 'value="Algebra"')
+
+    def test_guarda_los_cambios(self):
+        self.client.force_login(self.admin)
+        self.client.post(self.url, {"codigo": "LIB-001", "attr_titulo": "Álgebra lineal", "attr_anio": "2021"})
+        item = self.s.obtener_item(self.libro.id)
+        self.assertEqual(item.atributos, {"titulo": "Álgebra lineal", "anio": 2021})
+
+    def test_mismo_codigo_del_propio_item_se_permite_pero_no_el_de_otro(self):
+        from apps.catalogo.aplicacion.dtos import EdicionItemDTO
+        self.s.editar_item(EdicionItemDTO(item_id=self.libro.id, codigo="LIB-001", atributos={"titulo": "X"}))
+        with self.assertRaises(ValidationError):
+            self.s.editar_item(EdicionItemDTO(item_id=self.libro.id, codigo="LIB-002", atributos={"titulo": "X"}))
+
+    def test_sigue_validando_obligatorios(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"codigo": "LIB-001", "attr_titulo": ""})
+        self.assertContains(r, "obligatorio")
+
+    def test_item_de_baja_no_se_edita(self):
+        from apps.catalogo.aplicacion.dtos import EdicionItemDTO
+        self.s.dar_de_baja_item(self.libro.id, "Perdido")
+        with self.assertRaises(ValidationError):
+            self.s.editar_item(EdicionItemDTO(item_id=self.libro.id, codigo="LIB-001", atributos={"titulo": "X"}))
+        self.client.force_login(self.admin)
+        self.assertRedirects(self.client.get(self.url), "/catalogo/")

@@ -105,6 +105,13 @@ class Item(BaseModel):
             raise ValidationError("Indica el motivo de la baja.")
         self.cambiar_estado(EstadoItem.BAJA, motivo.strip())
 
+    def editar(self, codigo, atributos):
+        """Corrige el código y los atributos. La categoría y el estado NO se cambian aquí."""
+        if self.estado == EstadoItem.BAJA:
+            raise ValidationError("Un ítem dado de baja ya no se puede editar.")
+        self.codigo = codigo
+        self.atributos = atributos
+
     @property
     def esta_disponible(self):
         return self.estado == EstadoItem.DISPONIBLE

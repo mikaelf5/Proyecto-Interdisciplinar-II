@@ -81,6 +81,7 @@ class Command(BaseCommand):
             item.categoria = categorias[cat_nombre]
             item.atributos = atributos
             item.estado = EstadoItem.DISPONIBLE
+            item.motivo_fuera_servicio = "" 
             item.full_clean()  # aplica la validación de atributos
             item.save()
             creados += 1

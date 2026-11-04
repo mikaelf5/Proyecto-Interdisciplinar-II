@@ -6,8 +6,7 @@ class HorarioOcupado(ValidationError):
     """La franja pedida choca con otra reserva del mismo ítem.
 
     Además del mensaje trae lo necesario para que la pantalla ofrezca
-    alternativas: los horarios libres de ese día y otros ítems de la misma
-    categoría que sí están libres en ese horario.
+    alternativas: los horarios libres de ese día .
     """
 
     def __init__(self, mensaje, ocupada=None, horarios_libres=(), alternativos=()):
