@@ -92,6 +92,11 @@ class ItemNuevoForm(forms.Form):
         return crear_campo(etiqueta=nombre.replace("_", " ").capitalize(),
                            requerido=bool(regla.get("requerido", False)), regla=regla)
 
+    @classmethod
+    def valores_actuales(cls, item):
+        """Para la pantalla Editar: el formulario aparece lleno con lo que el ítem ya tiene."""
+        return {"codigo": item.codigo, **{cls.PREFIJO + nombre: valor for nombre, valor in item.atributos.items()}}
+
     def campos_de_atributos(self):
         return [self[self.PREFIJO + n] for n in self.definicion]
 

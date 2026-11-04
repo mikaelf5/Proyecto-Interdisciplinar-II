@@ -69,11 +69,12 @@ def validar_atributos(atributos, definicion):
     if not isinstance(atributos, dict):
         raise ValidationError({"atributos": "Los atributos deben ser un objeto JSON."})
 
-    for nombre, regla in definicion.items():
+    for nombre, regla in definicion.items(): #por cada atributo que pide la categoría
         if nombre not in atributos or atributos[nombre] in (None, ""):
             if regla.get("requerido", False):
-                errores.append(f"Falta el atributo obligatorio «{nombre}».")
+                errores.append(f"Falta el atributo obligatorio «{nombre}».") # ◄ anota el problema
             continue
+        
         if not _es_del_tipo(atributos[nombre], regla):
             tipo = regla.get("tipo", "texto")
             extra = f" ({', '.join(regla.get('opciones', []))})" if tipo == "opcion" else ""

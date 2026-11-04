@@ -41,6 +41,9 @@ class ICatalogoServicio(ABC):
     def registrar_item(self, dto): ...
 
     @abstractmethod
+    def editar_item(self, dto): ...
+
+    @abstractmethod
     def cambiar_estado_item(self, item_id, estado, motivo=""): ...
 
     @abstractmethod
@@ -100,12 +103,26 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
     @transaction.atomic
     def registrar_item(self, dto):
         """Botón "Registrar" de la pantalla Registrar ítem (RF-A2, RF-A3: código único)."""
-        if self.items.buscar_por_codigo(dto.codigo):
-            raise ValidationError(f"Ya existe un ítem con el código {dto.codigo}.")
+        self._verificar_codigo_libre(dto.codigo)
         categoria = self.categorias.buscar_por_id(dto.categoria_id)
         item = Item(codigo=dto.codigo, categoria=categoria, atributos=dto.atributos)
         self.items.guardar(item)  # aquí se validan los atributos dinámicos
         return ItemDTO.desde(item)
+
+    @transaction.atomic
+    def editar_item(self, dto):
+        """Botón "Guardar cambios" de la pantalla Editar ítem: corrige código y atributos."""
+        item = self.items.buscar_por_id(dto.item_id)
+        self._verificar_codigo_libre(dto.codigo, item_id=item.id)
+        item.editar(dto.codigo, dto.atributos)  # regla de dominio: un ítem de baja no se edita
+        self.items.guardar(item)  # vuelve a validar los atributos contra la categoría
+        return ItemDTO.desde(item)
+
+    def _verificar_codigo_libre(self, codigo, item_id=None):
+        """El código es único; al editar, el propio ítem no cuenta como repetido."""
+        otro = self.items.buscar_por_codigo(codigo)
+        if otro and otro.id != item_id:
+            raise ValidationError(f"Ya existe un ítem con el código {codigo}.")
 
     @transaction.atomic
     def cambiar_estado_item(self, item_id, estado, motivo=""):

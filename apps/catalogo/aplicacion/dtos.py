@@ -89,6 +89,13 @@ class NuevoItemDTO:
 
 
 @dataclass(frozen=True)
+class EdicionItemDTO:
+    item_id: UUID
+    codigo: str
+    atributos: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class NuevaCondicionDTO:
     item_id: UUID
     prestamo_id: UUID
