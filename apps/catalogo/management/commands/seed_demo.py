@@ -139,10 +139,10 @@ class Command(BaseCommand):
                                   hora_inicio=desde, hora_fin=hasta, finalidad=finalidad)
             try:
                 r = reservas.crear(dto)
-                self.stdout.write(f"  {cuenta.nombres}: {codigo} {r.franja} → {r.estado_display}")
+                self.stdout.write(f"  {cuenta.nombres}: {codigo} {r.franja} -> {r.estado_display}")
             except HorarioOcupado:
                 r = reservas.anotarse_en_espera(dto)
-                self.stdout.write(f"  {cuenta.nombres}: {codigo} {r.franja} → lista de espera n.º {r.posicion_en_cola}")
+                self.stdout.write(f"  {cuenta.nombres}: {codigo} {r.franja} -> lista de espera n.º {r.posicion_en_cola}")
             except ValidationError as e:
                 self.stdout.write(self.style.WARNING(f"  No se pudo reservar {codigo}: {' '.join(e.messages)}"))
 

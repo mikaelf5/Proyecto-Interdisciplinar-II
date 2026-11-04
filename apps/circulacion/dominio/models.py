@@ -148,7 +148,7 @@ class Solicitud(BaseModel):
 class Prestamo(BaseModel):
     item_id = models.UUIDField(db_index=True)
     solicitante_id = models.UUIDField(db_index=True)
-    solicitud_id = models.UUIDField(db_index=True)
+    reserva_id = models.UUIDField(db_index=True)
 
     encargado_entrega_id = models.UUIDField(db_index=True)
     encargado_devolucion_id = models.UUIDField(
@@ -218,19 +218,41 @@ class Prestamo(BaseModel):
             and timezone.now() > self.fecha_vencimiento
         )
 
-    def renovar(self, politica):
-        """Extiende un préstamo vigente por la duración autorizada en horas."""
+    def renovar(self, nueva_fecha_vencimiento, politica):
+        """Extiende el préstamo hasta la fecha y hora solicitadas."""
+
         if self.estado != EstadoPrestamo.ACTIVO or self.esta_vencido():
-            raise ValidationError("Solo se puede renovar un préstamo activo y no vencido.")
+            raise ValidationError(
+                "Solo se puede renovar un préstamo activo y no vencido."
+            )
+
         if not politica.permite_renovar(self.renovaciones_realizadas):
             raise ValidationError("Se alcanzó el límite de renovaciones.")
+
         if politica.duracion_maxima <= 0:
             raise ValidationError("La duración de la política debe ser positiva.")
-        from datetime import timedelta
-        self.fecha_vencimiento += timedelta(hours=politica.duracion_maxima)
+
+        if nueva_fecha_vencimiento <= self.fecha_vencimiento:
+            raise ValidationError(
+                "La nueva fecha debe ser posterior al vencimiento actual."
+            )
+
+        duracion = nueva_fecha_vencimiento - self.fecha_vencimiento
+
+        if duracion.total_seconds() > politica.duracion_maxima * 3600:
+            raise ValidationError(
+                "La renovación supera la duración máxima permitida."
+            )
+
+        self.fecha_vencimiento = nueva_fecha_vencimiento
         self.renovaciones_realizadas += 1
+
         self.full_clean()
-        self.save(update_fields=["fecha_vencimiento", "renovaciones_realizadas", "actualizado_en"])
+        self.save(update_fields=[
+            "fecha_vencimiento",
+            "renovaciones_realizadas",
+            "actualizado_en"
+        ])
 
     def registrar_devolucion(self, estado_fisico=None, encargado_id=None, fecha=None):
         """Cierra el préstamo; el registro físico se delega a Catálogo."""

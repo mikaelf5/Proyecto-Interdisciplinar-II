@@ -5,6 +5,7 @@ etiquetas; además gestión de cuentas, Mi perfil, menú por rol y seed_cuentas.
 """
 import re
 import uuid
+import os
 from datetime import date, timedelta
 
 from django.core import mail
@@ -212,7 +213,7 @@ class EtiquetasIntegracionTests(TestCase):
 
     def test_comando_actualizar_etiquetas(self):
         self.sancionar(TipoSancion.OBSERVACION)
-        call_command("actualizar_etiquetas", stdout=open("/dev/null", "w"))
+        call_command("actualizar_etiquetas", stdout=open(os.devnull, "w"))
         self.ana.perfil.refresh_from_db()
         self.assertEqual(self.ana.perfil.etiqueta, EtiquetaEstado.SANCIONADO)
 
@@ -327,22 +328,45 @@ class MenuPorRolTests(TestCase):
 
     def test_solicitante(self):
         html = self.menu(RolSistema.SOLICITANTE)
+
         for texto in ("Catálogo", "Mis reservas", "Notificaciones", "Mi perfil"):
             self.assertIn(texto, html)
-        for url in (reverse("circulacion:solicitudes"), reverse("reservas:bandeja_supervisor"),
-                    reverse("identidad:cuentas"), reverse("reportes:lista")):
+
+        for url in (
+                reverse("circulacion:entregas_hoy"),
+                reverse("circulacion:devoluciones"),
+                reverse("circulacion:prestamos_vencidos"),
+                reverse("reservas:bandeja_supervisor"),
+                reverse("identidad:cuentas"),
+                reverse("reportes:lista"),
+        ):
             self.assertNotIn(f'href="{url}"', html)
 
     def test_encargado_ve_prestamos(self):
         html = self.menu(RolSistema.ENCARGADO)
-        self.assertIn(f'href="{reverse("circulacion:solicitudes")}"', html)
-        self.assertNotIn(f'href="{reverse("identidad:cuentas")}"', html)
+
+        self.assertIn(
+            f'href="{reverse("circulacion:entregas_hoy")}"',
+            html
+        )
+
+        self.assertNotIn(
+            f'href="{reverse("identidad:cuentas")}"',
+            html
+        )
 
     def test_supervisor_ve_su_bandeja(self):
         html = self.menu(RolSistema.SUPERVISOR)
-        self.assertIn(f'href="{reverse("reservas:bandeja_supervisor")}"', html)
-        self.assertNotIn(f'href="{reverse("circulacion:solicitudes")}"', html)
 
+        self.assertIn(
+            f'href="{reverse("reservas:bandeja_supervisor")}"',
+            html
+        )
+
+        self.assertNotIn(
+            f'href="{reverse("circulacion:entregas_hoy")}"',
+            html
+        )
     def test_administrador(self):
         html = self.menu(RolSistema.ADMINISTRADOR)
         for url in (reverse("identidad:cuentas"), reverse("reportes:lista"),
@@ -356,8 +380,8 @@ class MenuPorRolTests(TestCase):
 
 class SeedCuentasTests(TestCase):
     def test_crea_una_por_rol_y_se_puede_repetir(self):
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
+        call_command("seed_cuentas", stdout=open(os.devnull, "w"))
+        call_command("seed_cuentas", stdout=open(os.devnull, "w"))
         self.assertEqual(Cuenta.objects.count(), 6)
         for rol in RolSistema.values:
             self.assertTrue(Cuenta.objects.filter(roles__contains=[rol]).exists(), rol)
@@ -368,6 +392,6 @@ class SeedCuentasTests(TestCase):
         self.assertFalse(cuenta_servicio().consultar_habilitacion(Cuenta.objects.get(correo="pedro@demo.pe").pk))
 
     def test_convive_con_seed_demo(self):
-        call_command("seed_cuentas", stdout=open("/dev/null", "w"))
-        call_command("seed_demo", stdout=open("/dev/null", "w"))
+        call_command("seed_cuentas", stdout=open(os.devnull, "w"))
+        call_command("seed_demo", stdout=open(os.devnull, "w"))
         self.assertEqual(Cuenta.objects.filter(correo__endswith="@demo.pe").count(), 6)

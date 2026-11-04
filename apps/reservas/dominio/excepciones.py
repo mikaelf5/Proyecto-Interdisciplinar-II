@@ -13,4 +13,4 @@ class HorarioOcupado(ValidationError):
         super().__init__(mensaje)
         self.ocupada = ocupada
         self.horarios_libres = list(horarios_libres)
-
+        self.alternativos = list(alternativos)

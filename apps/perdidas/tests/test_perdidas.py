@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, time
 
 from django.test import TestCase
 from django.urls import reverse
@@ -7,10 +7,10 @@ from django.urls import reverse
 from apps.auditoria.models import RegistroAuditoria
 from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
 from apps.circulacion.dominio.models import Prestamo
-from apps.common.choices import EstadoItem, EstadoPrestamo, RolSistema
+from apps.common.choices import EstadoItem, EstadoPrestamo, RolSistema, EstadoReserva
 from apps.perdidas.dominio.models import CasoPerdida
 from apps.sanciones.tests.helpers import crear_cuenta, crear_item, crear_prestamo
-
+from apps.reservas.dominio.models import Reserva
 
 class RegistrarPerdidaTests(TestCase):
     """RF-G3: registrar la pérdida cierra el préstamo y da de baja el ítem."""
@@ -18,10 +18,30 @@ class RegistrarPerdidaTests(TestCase):
     def setUp(self):
         self.encargado = crear_cuenta(roles=[RolSistema.ENCARGADO])
         self.ana = crear_cuenta(roles=[RolSistema.SOLICITANTE])
+
         self.catalogo = CatalogoServicioAplicacion()
         self.item = crear_item("EQP-001", "Laptop")
         self.catalogo.marcar_prestado(self.item.id)
+
+        # Crear una reserva real asociada al ítem y al solicitante.
+        self.reserva = Reserva.objects.create(
+            item_id=self.item.id,
+            solicitante_id=self.ana.pk,
+            fecha=date.today(),
+            hora_inicio=time(8, 0),
+            hora_fin=time(18, 0),
+            estado=EstadoReserva.CONFIRMADA,
+        )
+
+        # Simular que el encargado ya entregó el ítem.
+        self.reserva.marcar_atendida()
+        self.reserva.save()
+
+        # Crear el préstamo y asociarlo a la reserva existente.
         self.prestamo = crear_prestamo(self.item.id, self.ana.pk)
+        self.prestamo.reserva_id = self.reserva.id
+        self.prestamo.save(update_fields=["reserva_id"])
+
         self.client.force_login(self.encargado)
         self.url = reverse("perdidas:crear")
 

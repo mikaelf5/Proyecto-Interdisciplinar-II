@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Registrar devolución</h1>
+
+<h3>Información del préstamo</h3>
+
+<p><strong>Artículo:</strong> {{ item.codigo }} — {{ item.atributos.marca }} {{ item.atributos.modelo }}</p>
+<p><strong>Solicitante:</strong> {{ solicitante }}</p>
+<p><strong>Vencimiento:</strong> {{ prestamo.fecha_vencimiento }}</p>
+
+<form method="post">
+    {% csrf_token %}
+
+    {{ form.as_p }}
+
+    <button type="submit">Confirmar devolución</button>
+    <a href="{% url 'circulacion:devoluciones' %}">Cancelar</a>
+</form>
+{% endblock %}

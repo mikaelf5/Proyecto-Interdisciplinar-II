@@ -20,6 +20,10 @@ class IPoliticaServicio(ABC):
     def obtener_por_categoria(self, categoria_id, tipo_usuario):
         pass
 
+    @abstractmethod
+    def politica_para(self, categoria_id, tipo_usuario):
+        pass
+
 class PoliticaServicioAplicacion(IPoliticaServicio):
 
     def __init__(self, repositorio):
@@ -75,5 +79,7 @@ class PoliticaServicioAplicacion(IPoliticaServicio):
             tipo_usuario
         )
 
+    def politica_para(self, categoria_id, tipo_usuario):
+        return self.obtener_por_categoria(categoria_id, tipo_usuario)
 
 

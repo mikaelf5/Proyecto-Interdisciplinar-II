@@ -1,0 +1,29 @@
+```django
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>Renovar préstamo</h1>
+
+<p><strong>Artículo:</strong> {{ item.codigo }}</p>
+
+<p><strong>Vencimiento actual:</strong>
+    {{ prestamo.fecha_vencimiento }}
+</p>
+
+<p>Selecciona la nueva hora de devolución.</p>
+
+<form method="post">
+    {% csrf_token %}
+
+    {{ form.as_p }}
+
+    <button type="submit">Confirmar renovación</button>
+
+    <a href="{% url 'circulacion:mis_prestamos' %}">
+        <button type="button">Cancelar</button>
+    </a>
+</form>
+
+{% endblock %}
+```

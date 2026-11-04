@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Devoluciones pendientes</h1>
+
+{% if prestamos %}
+    <table>
+        <thead>
+            <tr>
+                <th>Artículo</th>
+                <th>Solicitante</th>
+                <th>Estado</th>
+                <th>Fecha de vencimiento</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for registro in prestamos %}
+                <tr>
+                    <td>{{ registro.articulo }}</td>
+                    <td>{{ registro.solicitante }}</td>
+                    <td>{{ registro.prestamo.estado }}</td>
+                    <td>{{ registro.prestamo.fecha_vencimiento }}</td>
+                    <td>
+                        <a href="{% url 'circulacion:registrar_devolucion' registro.prestamo.id %}">
+                            Registrar devolución
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No hay préstamos pendientes de devolución.</p>
+{% endif %}
+{% endblock %}

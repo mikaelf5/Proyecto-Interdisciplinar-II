@@ -1,71 +1,20 @@
 """Casos de uso de Circulación. Las dependencias externas se inyectan."""
 from abc import ABC, abstractmethod
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
-from apps.common.choices import EstadoSolicitud, EstadoPrestamo, TipoGarantia
-from apps.circulacion.dominio.models import Solicitud, Prestamo
+
+from apps.common.choices import (
+    EstadoPrestamo,
+    TipoGarantia,
+    TipoNotificacion,
+    EstadoReserva,
+)
+
+from apps.circulacion.dominio.models import Prestamo
 from apps.circulacion.aplicacion.dtos import PrestamoDTO
-
-class ISolicitudServicio(ABC):
-    @abstractmethod
-    def solicitar(self, dto): ...
-    @abstractmethod
-    def aprobar(self, id, encargado_id): ...
-    @abstractmethod
-    def aprobar_como_supervisor(self, id, supervisor_id): ...
-    @abstractmethod
-    def rechazar(self, id, encargado_id, motivo): ...
-    @abstractmethod
-    def cancelar(self, id): ...
-
-class SolicitudServicioAplicacion(ISolicitudServicio):
-    def __init__(self, solicitud_repositorio, elegibilidad=None, aprobacion=None):
-        self.repositorio = solicitud_repositorio
-        self.elegibilidad = elegibilidad
-        self.aprobacion = aprobacion
-
-    def _obtener(self, id):
-        solicitud = self.repositorio.buscar_por_id(id)
-        if solicitud is None:
-            raise ValidationError("No existe la solicitud.")
-        return solicitud
-
-    def solicitar(self, dto):
-        solicitud = Solicitud(item_id=dto.item_id, categoria_id=dto.categoria_id,
-                             solicitante_id=dto.solicitante_id, fecha_inicio=dto.fecha_inicio,
-                             fecha_fin=dto.fecha_fin, finalidad=dto.finalidad)
-        solicitud.full_clean()
-        return self.repositorio.guardar(solicitud)
-
-    def aprobar(self, id, encargado_id):
-        with transaction.atomic():
-            solicitud = self._obtener(id)
-            if self.aprobacion is not None:
-                estado = self.aprobacion.determinar_flujo(solicitud)
-                if estado == EstadoSolicitud.EN_ESPERA_SUPERVISOR:
-                    return solicitud
-            solicitud.aprobar(encargado_id)
-            return solicitud
-
-    def aprobar_como_supervisor(self, id, supervisor_id):
-        with transaction.atomic():
-            solicitud = self._obtener(id)
-            solicitud.aprobar_como_supervisor(supervisor_id)
-            return solicitud
-
-    def rechazar(self, id, encargado_id, motivo):
-        with transaction.atomic():
-            solicitud = self._obtener(id)
-            solicitud.rechazar(motivo, encargado_id)
-            return solicitud
-
-    def cancelar(self, id):
-        with transaction.atomic():
-            solicitud = self._obtener(id)
-            solicitud.cancelar()
-            return solicitud
 
 class IPrestamoServicio(ABC):
     @abstractmethod
@@ -76,22 +25,38 @@ class IPrestamoServicio(ABC):
     def registrar_devolucion(self, dto): ...
     @abstractmethod
     def listar_vencidos(self): ...
+
+    @abstractmethod
+    def historial_de(self, solicitante_id): ...
     @abstractmethod
     def cerrar_por_perdida(self, prestamo_id): ...
 
+    @abstractmethod
+    def buscar_vencidos(self, solicitante_id=None, item_id=None): ...
+
+
 class PrestamoServicioAplicacion(IPrestamoServicio):
-    def __init__(self, prestamo_repositorio, solicitud_repositorio=None,
+    def __init__(self, prestamo_repositorio, reservas=None,
                  elegibilidad=None, catalogo=None, politica_servicio=None,
-                 auditoria=None, condicion_servicio=None, resolver_politica=None):
+                 auditoria=None, condicion_servicio=None, identidad=None,
+                 notificaciones=None):
         self.repositorio = prestamo_repositorio
-        self.solicitudes = solicitud_repositorio
+        self.reservas = reservas
         self.elegibilidad = elegibilidad
         self.catalogo = catalogo
         self.politicas = politica_servicio
         self.auditoria = auditoria
         self.condiciones = condicion_servicio
-        self.resolver_politica = resolver_politica
+        self.identidad = identidad
+        self.notificaciones = notificaciones
 
+    def _prestamo(self, prestamo_id):
+        prestamo = self.repositorio.buscar_por_id(prestamo_id)
+
+        if prestamo is None:
+            raise ValidationError("No existe el préstamo solicitado.")
+
+        return prestamo
     def _registrar_condicion(self, item_id, prestamo_id, responsable_id,
                             momento, fecha, descripcion, foto=""):
         """Usa el contrato de Catálogo sin importar su rama al cargar este módulo."""
@@ -112,119 +77,373 @@ class PrestamoServicioAplicacion(IPrestamoServicio):
         )
         return servicio.registrar_condicion(condicion)
 
-    def _prestamo(self, id):
-        p = self.repositorio.buscar_por_id(id)
-        if p is None:
-            raise ValidationError("No existe el préstamo.")
-        return p
-
     def _politica(self, prestamo):
-        if self.resolver_politica is None:
-            raise ValidationError("Falta integrar la resolución de política por usuario y categoría.")
-        politica = self.resolver_politica(prestamo.solicitante_id, prestamo.item_id)
+        # Obtener información del ítem.
+        item = self.catalogo.obtener_item(prestamo.item_id)
+
+        # Obtener el tipo de usuario.
+        tipo_usuario = self.identidad.tipo_usuario_de(
+            prestamo.solicitante_id
+        )
+
+        if not tipo_usuario:
+            raise ValidationError(
+                "No se pudo determinar el tipo de usuario del solicitante."
+            )
+
+        # Buscar la política según categoría y tipo de usuario.
+        politica = self.politicas.politica_para(
+            item.categoria_id,
+            tipo_usuario
+        )
+
         if politica is None:
-            raise ValidationError("No existe una política aplicable.")
+            raise ValidationError(
+                "No existe una política aplicable."
+            )
+
         return politica
 
+    @transaction.atomic
     def registrar_entrega(self, dto):
-        """Entrega atómica con servicios externos inyectados y validados.
+        # Verificar que las dependencias estén integradas.
+        if not all([
+            self.reservas,
+            self.catalogo,
+            self.auditoria,
+            self.identidad,
+            self.politicas,
+        ]):
+            raise ValidationError(
+                "Faltan dependencias para registrar la entrega del préstamo."
+            )
 
-        elegibilidad.evaluar(solicitante_id, item_id) -> bool o resultado.habilitado
-        catalogo.esta_disponible(item_id), catalogo.marcar_prestado(item_id)
-        catalogo.registrar_condicion(NuevaCondicionDTO) y auditoria.registrar(...)
-        resolver_politica(solicitante_id, item_id) -> PoliticaPrestamo
-        """
-        if any(dep is None for dep in (self.solicitudes, self.elegibilidad,
-                                         self.catalogo, self.auditoria,
-                                         self.resolver_politica)):
-            raise ValidationError("Faltan dependencias para registrar la entrega.")
+        # Verificar aceptación de términos.
         if not dto.terminos_aceptados:
-            raise ValidationError("Debe aceptar los términos del préstamo.")
-        if dto.garantia_tipo not in TipoGarantia.values:
-            raise ValidationError("Tipo de garantía no válido.")
-        if dto.garantia_tipo == TipoGarantia.OTRO and not dto.garantia_detalle.strip():
-            raise ValidationError("Debe describir la garantía de tipo OTRO.")
-        with transaction.atomic():
-            solicitud = self.solicitudes.buscar_por_id(dto.solicitud_id)
-            if solicitud is None or solicitud.estado != EstadoSolicitud.APROBADA:
-                raise ValidationError("La solicitud debe estar aprobada.")
-            if solicitud.item_id is None:
-                raise ValidationError("Debe asignarse un ítem concreto antes de la entrega.")
-            if self.repositorio.existe_abierto_para_item(solicitud.item_id):
-                raise ValidationError("El ítem ya tiene un préstamo abierto.")
-            aptitud = self.elegibilidad.evaluar(solicitud.solicitante_id, solicitud.item_id)
-            es_apto = (aptitud if isinstance(aptitud, bool)
-                       else getattr(aptitud, "apto", getattr(aptitud, "habilitado", False)))
-            if not es_apto:
-                motivos = getattr(aptitud, "motivos", ())
-                detalle = "; ".join(str(m) for m in motivos) if motivos else ""
-                raise ValidationError(
-                    "El solicitante no es elegible." + (" " + detalle if detalle else "")
-                )
-            if not self.catalogo.esta_disponible(solicitud.item_id):
-                raise ValidationError("El ítem no está disponible.")
-            politica = self.resolver_politica(solicitud.solicitante_id, solicitud.item_id)
-            if politica is None:
-                raise ValidationError("No existe política aplicable.")
-            ahora = timezone.now()
-            limite = politica.calcular_vencimiento(ahora)
-            # Solicitud.fecha_fin es DateField: fin de ese día, no una hora solicitada.
-            fin_dia = timezone.make_aware(datetime.combine(solicitud.fecha_fin, time.max))
-            vencimiento = dto.fecha_vencimiento or min(fin_dia, limite)
-            if timezone.is_naive(vencimiento):
-                raise ValidationError("El vencimiento debe incluir zona horaria.")
-            if vencimiento <= ahora or vencimiento > limite or vencimiento > fin_dia:
-                raise ValidationError("La fecha de devolución no cumple el plazo solicitado y la política.")
-            prestamo = Prestamo(item_id=solicitud.item_id, solicitante_id=solicitud.solicitante_id,
-                solicitud_id=solicitud.id, encargado_entrega_id=dto.encargado_id,
-                garantia_tipo=dto.garantia_tipo, garantia_detalle=dto.garantia_detalle,
-                terminos_aceptados=True, fecha_entrega=ahora, fecha_vencimiento=vencimiento)
-            prestamo.full_clean()
-            self.repositorio.guardar(prestamo)
-            self.catalogo.marcar_prestado(prestamo.item_id)
-            self._registrar_condicion(
-                prestamo.item_id, prestamo.id, dto.encargado_id,
-                "ENTREGA", ahora, "Condición física al entregar"
-            )
-            self.auditoria.registrar(dto.encargado_id, "ENTREGA", "Prestamo", prestamo.id)
-            return PrestamoDTO.desde_modelo(prestamo)
-
-    def renovar(self, id):
-        with transaction.atomic():
-            prestamo = self._prestamo(id)
-            politica = self._politica(prestamo)
-            prestamo.renovar(politica)
-            return PrestamoDTO.desde_modelo(prestamo)
-
-    def registrar_devolucion(self, dto):
-        if self.catalogo is None:
-            raise ValidationError("Se requiere Catálogo y registro de condición física para devolver.")
+            raise ValidationError("Debes aceptar los términos del préstamo.")
+        # Verificar descripción de la condición física.
         if not dto.descripcion_condicion.strip():
-            raise ValidationError("Debe registrar la condición física del ítem.")
-        with transaction.atomic():
-            prestamo = self._prestamo(dto.prestamo_id)
-            if prestamo.estado not in (EstadoPrestamo.ACTIVO, EstadoPrestamo.VENCIDO):
-                raise ValidationError("El préstamo no está abierto.")
-            ahora = timezone.now()
-            self._registrar_condicion(
-                prestamo.item_id, prestamo.id, dto.encargado_id,
-                "DEVOLUCION", ahora, dto.descripcion_condicion, dto.foto
+            raise ValidationError(
+                "Debes describir la condición física del artículo."
             )
-            prestamo.registrar_devolucion(dto.descripcion_condicion, dto.encargado_id, ahora)
-            # No cambiar automáticamente el estado de Catálogo: requiere inspección
-            # y un contrato explícito para habilitar nuevamente el ítem.
-            if self.auditoria is not None:
-                self.auditoria.registrar(dto.encargado_id, "DEVOLUCION", "Prestamo", prestamo.id)
-            return PrestamoDTO.desde_modelo(prestamo)
+        # Validar garantía.
+        if dto.garantia_tipo not in TipoGarantia.values:
+            raise ValidationError("Selecciona un tipo de garantía válido.")
+
+        if dto.garantia_tipo == TipoGarantia.OTRO and not dto.garantia_detalle.strip():
+            raise ValidationError("Describe la garantía seleccionada.")
+
+        # Buscar la reserva.
+        reserva = self.reservas.obtener(dto.reserva_id)
+
+        if reserva.estado != EstadoReserva.CONFIRMADA:
+            raise ValidationError(
+                "Solo se pueden entregar ítems con reservas confirmadas."
+            )
+
+        # Verificar habilitación del solicitante.
+        resultado = self.identidad.consultar_habilitacion(
+            reserva.solicitante_id
+        )
+
+        if not resultado.habilitado:
+            raise ValidationError(
+                f"El solicitante no está habilitado. {resultado.mensaje}"
+            )
+
+        # Verificar disponibilidad del ítem.
+        if not self.catalogo.esta_disponible(reserva.item_id):
+            raise ValidationError("El ítem no está disponible para préstamo.")
+
+        # Evitar dos préstamos abiertos para el mismo ítem.
+        if self.repositorio.existe_abierto_para_item(reserva.item_id):
+            raise ValidationError("El ítem ya tiene un préstamo abierto.")
+
+        # Obtener política y calcular vencimiento.
+        tipo_usuario = self.identidad.tipo_usuario_de(
+            reserva.solicitante_id
+        )
+
+        if not tipo_usuario:
+            raise ValidationError(
+                "No se pudo determinar el tipo de usuario del solicitante."
+            )
+
+        politica = self.politicas.politica_para(
+            reserva.categoria_id,
+            tipo_usuario
+        )
+
+        if politica is None:
+            raise ValidationError("No existe una política aplicable.")
+
+        # La devolución debe realizarse al terminar la reserva.
+        fecha_vencimiento = timezone.make_aware(
+            datetime.combine(reserva.fecha, reserva.hora_fin),
+            timezone.get_current_timezone()
+        )
+
+        ahora = timezone.localtime()
+
+        if fecha_vencimiento <= ahora:
+            raise ValidationError("El horario de esta reserva ya terminó.")
+
+        # Marcar la reserva como atendida.
+        self.reservas.marcar_atendida(dto.reserva_id)
+
+        # Registrar el préstamo.
+        prestamo = Prestamo(
+            item_id=reserva.item_id,
+            solicitante_id=reserva.solicitante_id,
+            reserva_id=reserva.id,
+            encargado_entrega_id=dto.encargado_id,
+            garantia_tipo=dto.garantia_tipo,
+            garantia_detalle=dto.garantia_detalle,
+            terminos_aceptados=True,
+            fecha_entrega=ahora,
+            fecha_vencimiento=fecha_vencimiento,
+            estado=EstadoPrestamo.ACTIVO,
+        )
+
+        try:
+            with transaction.atomic():
+                self.repositorio.guardar(prestamo)
+
+        except IntegrityError as exc:
+            causa = exc.__cause__
+            nombre_restriccion = getattr(
+                getattr(causa, "diag", None),
+                "constraint_name",
+                None
+            )
+
+            if nombre_restriccion == "unique_prestamo_abierto_por_item":
+                raise ValidationError(
+                    "El ítem ya tiene un préstamo abierto."
+                ) from exc
+
+            raise
+
+        # Cambiar el estado del ítem en Catálogo.
+        self.catalogo.marcar_prestado(reserva.item_id)
+
+        # Registrar la condición física de entrega.
+        self._registrar_condicion(
+            item_id=reserva.item_id,
+            prestamo_id=prestamo.id,
+            responsable_id=dto.encargado_id,
+            momento="ENTREGA",
+            fecha=ahora,
+            descripcion=dto.descripcion_condicion
+        )
+
+        # Registrar auditoría.
+        self.auditoria.registrar(
+            actor_id=dto.encargado_id,
+            accion="ENTREGA_PRESTAMO",
+            entidad="Prestamo",
+            entidad_id=prestamo.id,
+            motivo=f"Entrega del préstamo asociado a la reserva {reserva.id}."
+        )
+
+        return PrestamoDTO.desde_modelo(prestamo)
+
+    @transaction.atomic
+    def renovar(self, id, nueva_hora_fin):
+        prestamo = self._prestamo(id)
+
+        ahora = timezone.localtime()
+
+        if ahora.time() >= time(20, 0):
+            raise ValidationError(
+                "Las renovaciones solo se permiten antes de las 20:00."
+            )
+
+        politica = self._politica(prestamo)
+
+        if prestamo.estado != EstadoPrestamo.ACTIVO:
+            raise ValidationError("Este préstamo no está activo.")
+
+        if prestamo.esta_vencido():
+            raise ValidationError("No puedes renovar un préstamo vencido.")
+
+        reserva = self.reservas.obtener(prestamo.reserva_id)
+
+        if nueva_hora_fin <= reserva.hora_fin:
+            raise ValidationError(
+                "La nueva hora debe ser posterior al vencimiento actual."
+            )
+
+        if nueva_hora_fin > time(20, 0):
+            raise ValidationError(
+                "La devolución no puede superar las 20:00."
+            )
+
+        # La renovación debe permanecer en el mismo día.
+        if timezone.localtime(prestamo.fecha_vencimiento).date() != reserva.fecha:
+            raise ValidationError(
+                "La renovación no puede extenderse a un día diferente."
+            )
+
+        # Calcular las horas adicionales solicitadas.
+        nueva_fecha = timezone.make_aware(
+            datetime.combine(reserva.fecha, nueva_hora_fin),
+            timezone.get_current_timezone()
+        )
+
+        duracion = nueva_fecha - prestamo.fecha_vencimiento
+
+        if duracion.total_seconds() > politica.duracion_maxima * 3600:
+            raise ValidationError(
+                "La renovación supera la duración máxima permitida."
+            )
+
+        # Actualizar el préstamo y validar el límite de renovaciones.
+        prestamo.renovar(nueva_fecha, politica)
+
+        # Comprobar disponibilidad y extender la reserva.
+        self.reservas.extender(
+            prestamo.reserva_id,
+            nueva_hora_fin
+        )
+
+        self.repositorio.guardar(prestamo)
+
+        self.auditoria.registrar(
+            actor_id=prestamo.solicitante_id,
+            accion="RENOVACION_PRESTAMO",
+            entidad="Prestamo",
+            entidad_id=prestamo.id,
+            motivo=f"Nuevo vencimiento: {prestamo.fecha_vencimiento}."
+        )
+
+        return PrestamoDTO.desde_modelo(prestamo)
+
+    @transaction.atomic
+    def registrar_devolucion(self, dto):
+        # Verificar dependencias necesarias.
+        if self.catalogo is None or self.reservas is None:
+            raise ValidationError(
+                "Se requiere Catálogo y Reservas para registrar la devolución."
+            )
+
+        if not dto.descripcion_condicion.strip():
+            raise ValidationError(
+                "Debe registrar la condición física del ítem."
+            )
+
+        # Buscar el préstamo.
+        prestamo = self._prestamo(dto.prestamo_id)
+
+        if prestamo.estado not in (
+                EstadoPrestamo.ACTIVO,
+                EstadoPrestamo.VENCIDO
+        ):
+            raise ValidationError("El préstamo no está abierto.")
+
+        ahora = timezone.now()
+
+        # Registrar la condición física en Catálogo.
+        self._registrar_condicion(
+            prestamo.item_id,
+            prestamo.id,
+            dto.encargado_id,
+            "DEVOLUCION",
+            ahora,
+            dto.descripcion_condicion,
+            dto.foto
+        )
+
+        # Cerrar el préstamo.
+        prestamo.registrar_devolucion(
+            encargado_id=dto.encargado_id,
+            fecha=ahora
+        )
+
+        # Registrar si el encargado devolvió la garantía al usuario.
+        prestamo.garantia_devuelta = dto.garantia_devuelta
+        prestamo.save(
+            update_fields=["garantia_devuelta", "actualizado_en"]
+        )
+
+        # Actualizar el estado del ítem según su condición.
+        if dto.item_daniado:
+            self.catalogo.marcar_daniado(
+                prestamo.item_id,
+                dto.descripcion_condicion
+            )
+
+            # Notificar al solicitante después de confirmar la transacción.
+            if self.notificaciones is not None:
+                transaction.on_commit(
+                    lambda: self.notificaciones.enviar(
+                        prestamo.solicitante_id,
+                        TipoNotificacion.ITEM_DANIADO,
+                        f"El ítem asociado al préstamo {prestamo.id} "
+                        "ha sido registrado como dañado y enviado a mantenimiento."
+                    )
+                )
+        else:
+            self.catalogo.marcar_disponible(prestamo.item_id)
+
+        # Finalizar la reserva asociada al préstamo.
+        self.reservas.liberar(prestamo.reserva_id)
+
+        # Registrar auditoría.
+        if self.auditoria is not None:
+            self.auditoria.registrar(
+                actor_id=dto.encargado_id,
+                accion="DEVOLUCION_PRESTAMO",
+                entidad="Prestamo",
+                entidad_id=prestamo.id,
+                motivo=(
+                    f"Devolución registrada. "
+                    f"Ítem dañado: {dto.item_daniado}. "
+                    f"Garantía devuelta: {dto.garantia_devuelta}."
+                )
+            )
+
+        return PrestamoDTO.desde_modelo(prestamo)
 
     def listar_vencidos(self):
         return [PrestamoDTO.desde_modelo(p) for p in self.repositorio.vencidos()]
 
+    def historial_de(self, solicitante_id):
+        return [
+            PrestamoDTO.desde_modelo(p)
+            for p in self.repositorio.historial_de(solicitante_id)
+        ]
+    def buscar_vencidos(self, solicitante_id=None, item_id=None):
+        prestamos = self.repositorio.buscar_vencidos(
+            solicitante_id=solicitante_id,
+            item_id=item_id
+        )
+
+        return [
+            PrestamoDTO.desde_modelo(p)
+            for p in prestamos
+        ]
+
+    @transaction.atomic
     def cerrar_por_perdida(self, prestamo_id):
-        with transaction.atomic():
-            prestamo = self._prestamo(prestamo_id)
-            prestamo.cerrar_por_perdida()
-            return prestamo
+        prestamo = self._prestamo(prestamo_id)
+        if self.reservas is None:
+            raise ValidationError(
+                "Falta el servicio de Reservas para cerrar el préstamo por pérdida."
+            )
+        prestamo.cerrar_por_perdida()
+
+        self.reservas.finalizar_por_perdida(prestamo.reserva_id)
+
+        return prestamo
+    def entregados_hoy(self):
+        return self.repositorio.entregados_hoy()
+
+    def abiertos(self):
+        return [
+            PrestamoDTO.desde_modelo(p)
+            for p in self.repositorio.abiertos()
+        ]
 
 class AprobarYEntregarPrestamo:
     def __init__(self, prestamo_servicio):
@@ -241,5 +460,5 @@ class RegistrarDevolucion:
 class RenovarPrestamo:
     def __init__(self, prestamo_servicio):
         self.servicio = prestamo_servicio
-    def ejecutar(self, prestamo_id):
-        return self.servicio.renovar(prestamo_id)
+    def ejecutar(self, prestamo_id, nueva_hora_fin):
+        return self.servicio.renovar(prestamo_id, nueva_hora_fin)
