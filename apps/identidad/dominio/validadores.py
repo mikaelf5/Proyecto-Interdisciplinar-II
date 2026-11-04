@@ -24,3 +24,31 @@ def error_de(validador, valor):
     except ValidationError as error:
         return error.messages[0]
     return None
+
+
+# ---------- Registro por autoservicio ----------
+DOMINIO_INSTITUCIONAL = "@unsa.edu.pe"
+
+
+def validar_correo_institucional(correo):
+    """Solo se aceptan correos que terminan en @unsa.edu.pe (requisito del sistema)."""
+    from django.core.exceptions import ValidationError
+
+    if not (correo or "").strip().lower().endswith(DOMINIO_INSTITUCIONAL):
+        raise ValidationError(f"Usa tu correo institucional (termina en {DOMINIO_INSTITUCIONAL}).")
+
+
+EXTENSIONES_DOCUMENTO = ("pdf", "jpg", "jpeg", "png")
+TAMANIO_MAXIMO_DOCUMENTO = 5 * 1024 * 1024  # 5 MB
+
+
+def validar_documento(archivo):
+    """El documento que acredita la condición institucional: PDF o imagen, máx. 5 MB."""
+    from django.core.exceptions import ValidationError
+
+    nombre = getattr(archivo, "name", "") or ""
+    extension = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else ""
+    if extension not in EXTENSIONES_DOCUMENTO:
+        raise ValidationError("Sube el documento en PDF, JPG o PNG.")
+    if (getattr(archivo, "size", 0) or 0) > TAMANIO_MAXIMO_DOCUMENTO:
+        raise ValidationError("El documento no debe pesar más de 5 MB.")

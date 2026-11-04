@@ -34,3 +34,26 @@ class IPerfilSolicitanteRepositorio(ABC):
 
     @abstractmethod
     def todos(self): ...
+
+
+class ISolicitudRegistroRepositorio(ABC):
+    @abstractmethod
+    def obtener(self, solicitud_id):
+        """Solicitud por id, o None."""
+
+    @abstractmethod
+    def hay_pendiente(self, correo="", dni="") -> bool:
+        """¿Ya hay una solicitud PENDIENTE con ese correo o con ese DNI?"""
+
+    @abstractmethod
+    def ultima_por_correo(self, correo):
+        """La solicitud más reciente con ese correo (cualquier estado), o None."""
+
+    @abstractmethod
+    def guardar(self, solicitud): ...
+
+    @abstractmethod
+    def listar(self, estado=""): ...
+
+    @abstractmethod
+    def contar_pendientes(self) -> int: ...

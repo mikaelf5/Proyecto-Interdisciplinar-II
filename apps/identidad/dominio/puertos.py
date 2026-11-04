@@ -20,3 +20,17 @@ class IHistorialPrestamosPuerto(ABC):
     @abstractmethod
     def devueltos_a_tiempo(self, cuenta_id) -> int:
         """Cuántos préstamos devolvió la cuenta en o antes de su vencimiento."""
+
+
+class ICorreoRegistroPuerto(ABC):
+    """Avisa por correo el resultado de la solicitud de registro.
+
+    No se usa el contexto Notificaciones porque este necesita una Cuenta como
+    destinatario, y a quien se le rechaza la solicitud nunca tuvo cuenta.
+    """
+
+    @abstractmethod
+    def avisar_aprobacion(self, solicitud, roles): ...
+
+    @abstractmethod
+    def avisar_rechazo(self, solicitud): ...

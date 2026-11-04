@@ -116,3 +116,45 @@ def servicio(cuentas=(), perfiles=(), auditoria=None, sanciones=None, historial=
         CuentaRepoFalso(*cuentas), PerfilRepoFalso(*perfiles), HasherFalso(), auditoria,
         sanciones=sanciones, historial=historial, umbral_frecuente=umbral,
     )
+
+
+# ---------- Registro por autoservicio ----------
+class SolicitudRepoFalso:
+    def __init__(self, *solicitudes):
+        self.solicitudes = {s.pk: s for s in solicitudes}
+
+    def obtener(self, solicitud_id):
+        return self.solicitudes.get(solicitud_id)
+
+    def hay_pendiente(self, correo="", dni=""):
+        return any(s.esta_pendiente() and ((correo and s.correo.lower() == correo.lower())
+                                           or (dni and s.dni == dni))
+                   for s in self.solicitudes.values())
+
+    def ultima_por_correo(self, correo):
+        mismas = [s for s in self.solicitudes.values() if s.correo.lower() == correo.lower()]
+        return mismas[-1] if mismas else None
+
+    def guardar(self, solicitud):
+        self.solicitudes[solicitud.pk] = solicitud
+        return solicitud
+
+    def listar(self, estado=""):
+        return [s for s in self.solicitudes.values() if not estado or s.estado == estado]
+
+    def contar_pendientes(self):
+        return len(self.listar("PENDIENTE"))
+
+
+class CorreoFalso:
+    def __init__(self, falla=False):
+        self.enviados = []
+        self.falla = falla
+
+    def avisar_aprobacion(self, solicitud, roles):
+        if self.falla:
+            raise ConnectionError("SMTP caído")
+        self.enviados.append(("aprobada", solicitud.correo, tuple(roles)))
+
+    def avisar_rechazo(self, solicitud):
+        self.enviados.append(("rechazada", solicitud.correo, solicitud.motivo_rechazo))

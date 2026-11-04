@@ -11,7 +11,11 @@ from django.shortcuts import redirect, render, resolve_url
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 
-from apps.identidad.dominio.excepciones import CredencialesInvalidas, CuentaInactiva
+from apps.identidad.dominio.excepciones import (
+    CredencialesInvalidas,
+    CuentaInactiva,
+    RegistroNoAprobado,
+)
 from apps.identidad.fabrica import cuenta_servicio
 
 from .forms import LoginForm
@@ -34,7 +38,7 @@ class AuthController(View):
                 cuenta = cuenta_servicio().iniciar_sesion(
                     form.cleaned_data["correo"], form.cleaned_data["password"]
                 )
-            except (CredencialesInvalidas, CuentaInactiva) as error:
+            except (CredencialesInvalidas, CuentaInactiva, RegistroNoAprobado) as error:
                 form.add_error(None, str(error))
             else:
                 login(request, cuenta, backend="django.contrib.auth.backends.ModelBackend")

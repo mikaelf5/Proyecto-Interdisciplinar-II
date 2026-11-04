@@ -101,6 +101,10 @@ LOGIN_URL = "identidad:login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "identidad:login"
 STATIC_URL = "static/"
+
+# Archivos subidos (documentos del registro). NO se sirven con una URL pública:
+# tienen datos personales y solo el administrador los abre desde una vista protegida.
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "identidad.Cuenta"
 

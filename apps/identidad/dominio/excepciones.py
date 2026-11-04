@@ -43,3 +43,11 @@ class OperacionNoPermitida(IdentidadError):
 
 class MotivoRequerido(IdentidadError):
     """Las acciones sensibles exigen motivo (RF-J1)."""
+
+
+class RegistroNoAprobado(IdentidadError):
+    """Se registró por su cuenta, pero el administrador aún no aprueba (o rechazó) su solicitud."""
+
+
+class SolicitudYaRevisada(IdentidadError):
+    """La solicitud de registro ya fue aprobada o rechazada: no se revisa dos veces."""
