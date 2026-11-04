@@ -9,7 +9,14 @@ from django.contrib.auth.password_validation import validate_password
 
 from apps.common.choices import RolSistema, TipoUsuario
 from apps.identidad.dominio.documentos import ACTA_RESPONSABILIDAD, CONSENTIMIENTO_DATOS
-from apps.identidad.dominio.validadores import validar_celular, validar_cui, validar_dni
+from apps.identidad.dominio.models import TipoDocumentoAcreditacion
+from apps.identidad.dominio.validadores import (
+    validar_celular,
+    validar_correo_institucional,
+    validar_cui,
+    validar_dni,
+    validar_documento,
+)
 
 CONTROL = {"class": "form-control"}
 CHECK = {"class": "form-check-input"}
@@ -126,4 +133,85 @@ class MotivoForm(forms.Form):
     motivo = forms.CharField(
         label="Motivo", required=False, max_length=500,
         widget=forms.TextInput(attrs={**CONTROL, "placeholder": "Motivo (obligatorio)"}),
+    )
+
+
+# ---------------------------------------------------------------------- #
+# Registro por autoservicio (pantalla pública) y revisión del administrador
+# ---------------------------------------------------------------------- #
+class SolicitudRegistroForm(forms.Form):
+    """Lo llena la propia persona. NO elige rol: eso lo decide el administrador."""
+
+    nombres = forms.CharField(label="Nombres y apellidos", max_length=150,
+                              widget=forms.TextInput(attrs={**CONTROL, "autocomplete": "name"}))
+    dni = forms.CharField(label="DNI", max_length=8, validators=[validar_dni],
+                          widget=forms.TextInput(attrs={**CONTROL, "inputmode": "numeric"}))
+    tipo = forms.ChoiceField(
+        label="Soy", choices=[("", "— Elige —")] + list(TipoUsuario.choices),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    cui = forms.CharField(
+        label="CUI", required=False, max_length=8, validators=[validar_cui],
+        help_text="Obligatorio si eres alumno (8 dígitos).",
+        widget=forms.TextInput(attrs={**CONTROL, "inputmode": "numeric"}),
+    )
+    celular = forms.CharField(label="Celular", max_length=9, validators=[validar_celular],
+                              widget=forms.TextInput(attrs={**CONTROL, "inputmode": "numeric"}))
+    direccion = forms.CharField(label="Dirección", max_length=255,
+                                widget=forms.TextInput(attrs=CONTROL))
+    tipo_documento = forms.ChoiceField(
+        label="Documento que acredita que eres de la escuela",
+        choices=[("", "— Elige —")] + list(TipoDocumentoAcreditacion.choices),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    documento = forms.FileField(
+        label="Archivo del documento", validators=[validar_documento],
+        help_text="PDF, JPG o PNG, máximo 5 MB. Solo lo ve el administrador.",
+        widget=forms.ClearableFileInput(attrs={**CONTROL, "accept": ".pdf,.jpg,.jpeg,.png"}),
+    )
+    correo = forms.EmailField(
+        label="Correo institucional", validators=[validar_correo_institucional],
+        help_text="Será tu usuario para iniciar sesión.",
+        widget=forms.EmailInput(attrs={**CONTROL, "placeholder": "usuario@unsa.edu.pe",
+                                       "autocomplete": "email"}),
+    )
+    password1 = forms.CharField(
+        label="Contraseña", strip=False,
+        help_text="Mínimo 8 caracteres, no solo números.",
+        widget=forms.PasswordInput(attrs={**CONTROL, "autocomplete": "new-password"}),
+    )
+    password2 = forms.CharField(
+        label="Repite la contraseña", strip=False,
+        widget=forms.PasswordInput(attrs={**CONTROL, "autocomplete": "new-password"}),
+    )
+    acta_aceptada = forms.BooleanField(
+        label="Acepto el acta de responsabilidad", required=False,
+        help_text=ACTA_RESPONSABILIDAD, widget=forms.CheckboxInput(attrs=CHECK),
+    )
+    consentimiento_aceptado = forms.BooleanField(
+        label="Autorizo el tratamiento de mis datos personales (Ley N.° 29733)",
+        required=False, help_text=CONSENTIMIENTO_DATOS, widget=forms.CheckboxInput(attrs=CHECK),
+    )
+
+    def clean(self):
+        datos = super().clean()
+        p1, p2 = datos.get("password1"), datos.get("password2")
+        if p1 and p2 and p1 != p2:
+            self.add_error("password2", "Las contraseñas no coinciden.")
+        elif p1:
+            try:
+                validate_password(p1)
+            except forms.ValidationError as error:
+                self.add_error("password1", error)
+        return datos
+
+
+class AprobarRegistroForm(forms.Form):
+    roles = forms.MultipleChoiceField(
+        label="Roles", choices=RolSistema.choices, initial=[RolSistema.SOLICITANTE],
+        widget=forms.CheckboxSelectMultiple(attrs=CHECK),
+    )
+    tipo = forms.ChoiceField(
+        label="Tipo de usuario (confírmalo con el documento)", required=False,
+        choices=list(TipoUsuario.choices), widget=forms.Select(attrs={"class": "form-select"}),
     )

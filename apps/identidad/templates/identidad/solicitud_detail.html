@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Solicitud de {{ solicitud.nombres }}{% endblock %}
+
+{% block content %}
+<nav class="small mb-2"><a href="{% url 'identidad:solicitudes' %}">← Solicitudes de registro</a></nav>
+<div class="d-flex align-items-center gap-2 mb-3">
+    <h1 class="h3 mb-0">{{ solicitud.nombres }}</h1>
+    <span class="badge bg-secondary">{{ solicitud.get_estado_display }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Datos enviados</h2>
+            <dl class="row mb-0 small">
+                <dt class="col-4">Correo</dt><dd class="col-8">{{ solicitud.correo }}</dd>
+                <dt class="col-4">DNI</dt><dd class="col-8">{{ solicitud.dni }}</dd>
+                <dt class="col-4">Tipo declarado</dt><dd class="col-8">{{ solicitud.get_tipo_display }}</dd>
+                <dt class="col-4">CUI</dt><dd class="col-8">{{ solicitud.cui|default:"—" }}</dd>
+                <dt class="col-4">Celular</dt><dd class="col-8">{{ solicitud.celular }}</dd>
+                <dt class="col-4">Dirección</dt><dd class="col-8">{{ solicitud.direccion }}</dd>
+                <dt class="col-4">Enviada</dt><dd class="col-8">{{ solicitud.creado_en|date:"d/m/Y H:i" }}</dd>
+                <dt class="col-4">Acta</dt><dd class="col-8">{{ solicitud.acta_version }} · {{ solicitud.acta_fecha|date:"d/m/Y" }}</dd>
+                <dt class="col-4">Consentimiento</dt><dd class="col-8">{{ solicitud.consentimiento_version }} · {{ solicitud.consentimiento_fecha|date:"d/m/Y H:i" }}</dd>
+            </dl>
+        </div>
+
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Documento</h2>
+            <p class="small mb-2">{{ solicitud.get_tipo_documento_display }}</p>
+            <a href="{% url 'identidad:documento_solicitud' solicitud.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary">Abrir documento</a>
+            <p class="small text-muted mt-2 mb-0">Verifica que el nombre, DNI/CUI y la vigencia coincidan con los datos enviados.</p>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+    {% if solicitud.esta_pendiente %}
+        <div class="card p-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Aprobar</h2>
+            <form method="post" action="{% url 'identidad:aprobar_solicitud' solicitud.pk %}" novalidate>
+                {% csrf_token %}
+                {% for error in form_aprobar.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+                <div class="mb-3">
+                    <label class="form-label">Roles</label>
+                    {% for opcion in form_aprobar.roles %}
+                        <div class="form-check">{{ opcion.tag }} <label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+                    {% endfor %}
+                    {% for error in form_aprobar.roles.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                {% include "includes/campo.html" with campo=form_aprobar.tipo %}
+                <button class="btn btn-success">Aprobar y crear cuenta</button>
+            </form>
+        </div>
+
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Rechazar</h2>
+            <form method="post" action="{% url 'identidad:rechazar_solicitud' solicitud.pk %}">
+                {% csrf_token %}
+                {% include "includes/campo.html" with campo=form_rechazar.motivo %}
+                <p class="small text-muted">El motivo se le envía por correo a la persona.</p>
+                <button class="btn btn-outline-danger">Rechazar</button>
+            </form>
+        </div>
+    {% else %}
+        <div class="card p-4">
+            <h2 class="h6 text-uppercase text-muted mb-3">Revisión</h2>
+            <dl class="row mb-0 small">
+                <dt class="col-4">Resultado</dt><dd class="col-8">{{ solicitud.get_estado_display }}</dd>
+                <dt class="col-4">Fecha</dt><dd class="col-8">{{ solicitud.fecha_revision|date:"d/m/Y H:i" }}</dd>
+                {% if solicitud.motivo_rechazo %}<dt class="col-4">Motivo</dt><dd class="col-8">{{ solicitud.motivo_rechazo }}</dd>{% endif %}
+                {% if solicitud.cuenta %}<dt class="col-4">Cuenta</dt><dd class="col-8"><a href="{% url 'identidad:cuenta_detalle' solicitud.cuenta.pk %}">Ver cuenta</a></dd>{% endif %}
+            </dl>
+        </div>
+    {% endif %}
+    </div>
+</div>
+{% endblock %}

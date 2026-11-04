@@ -43,6 +43,7 @@
                         {# --- Administrador --- #}
                         {% if menu.es_admin %}
                             <li class="nav-item"><a class="nav-link" href="{% url 'identidad:cuentas' %}">Cuentas</a></li>
+                            <li class="nav-item"><a class="nav-link" href="{% url 'identidad:solicitudes' %}">Registros</a></li>
                             <li class="nav-item"><a class="nav-link" href="{% url 'admin:app_list' app_label='politicas' %}">Políticas</a></li>
                             <li class="nav-item"><a class="nav-link" href="{% url 'reportes:lista' %}">Reportes</a></li>
                         {% endif %}

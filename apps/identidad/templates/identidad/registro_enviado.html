@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Solicitud enviada{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card p-4 mt-4">
+            <h1 class="h4">Solicitud enviada</h1>
+            <p>El administrador revisará tus datos y el documento que subiste.</p>
+            <p class="mb-4">Te llegará un correo cuando tu solicitud sea <b>aprobada</b> (ya podrás iniciar sesión con tu correo y contraseña) o <b>rechazada</b> (con el motivo).</p>
+            <a href="{% url 'identidad:login' %}" class="btn btn-primary">Ir a iniciar sesión</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

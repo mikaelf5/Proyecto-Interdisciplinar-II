@@ -15,6 +15,15 @@ from .presentacion.cuenta_controller import (
     RegistrarCuentaController,
 )
 from .presentacion.perfil_controller import MiPerfilController
+from .presentacion.registro_controller import (
+    AprobarSolicitudController,
+    DocumentoSolicitudController,
+    RechazarSolicitudController,
+    RegistroEnviadoController,
+    RegistroPublicoController,
+    SolicitudDetalleController,
+    SolicitudListController,
+)
 
 app_name = "identidad"
 
@@ -22,6 +31,10 @@ urlpatterns = [
     path("login/", AuthController.as_view(), name="login"),
     path("logout/", LogoutController.as_view(), name="logout"),
     path("mi-perfil/", MiPerfilController.as_view(), name="mi_perfil"),
+
+    # --- Registro por autoservicio (público) ---
+    path("registro/", RegistroPublicoController.as_view(), name="registro"),
+    path("registro/enviado/", RegistroEnviadoController.as_view(), name="registro_enviado"),
 
     # --- RF-B4: recuperar contraseña con las vistas de Django (el correo sale en la consola) ---
     path("contrasena/recuperar/", auth_views.PasswordResetView.as_view(
@@ -58,5 +71,11 @@ urlpatterns = [
     path("cuentas/<uuid:pk>/activar/", ActivarCuentaController.as_view(), name="activar"),
     path("cuentas/<uuid:pk>/habilitacion/", HabilitacionController.as_view(), name="habilitacion"),
     path("cuentas/<uuid:pk>/perfil/", CompletarPerfilController.as_view(), name="completar_perfil"),
+    # --- Administrador: solicitudes de registro ---
+    path("solicitudes/", SolicitudListController.as_view(), name="solicitudes"),
+    path("solicitudes/<uuid:pk>/", SolicitudDetalleController.as_view(), name="solicitud_detalle"),
+    path("solicitudes/<uuid:pk>/aprobar/", AprobarSolicitudController.as_view(), name="aprobar_solicitud"),
+    path("solicitudes/<uuid:pk>/rechazar/", RechazarSolicitudController.as_view(), name="rechazar_solicitud"),
+    path("solicitudes/<uuid:pk>/documento/", DocumentoSolicitudController.as_view(), name="documento_solicitud"),
     path("cuentas/<uuid:pk>/etiqueta/", RecalcularEtiquetaController.as_view(), name="recalcular_etiqueta"),
 ]
