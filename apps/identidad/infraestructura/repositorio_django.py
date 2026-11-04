@@ -1,10 +1,16 @@
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
-from apps.identidad.dominio.models import Cuenta, PerfilSolicitante
+from apps.identidad.dominio.models import (
+    Cuenta,
+    EstadoRegistro,
+    PerfilSolicitante,
+    SolicitudRegistro,
+)
 from apps.identidad.dominio.repositorio import (
     ICuentaRepositorio,
     IPerfilSolicitanteRepositorio,
+    ISolicitudRegistroRepositorio,
 )
 
 from .acceso_panel import sincronizar_grupo_administradores
@@ -64,3 +70,38 @@ class PerfilSolicitanteRepositorioImpl(IPerfilSolicitanteRepositorio):
 
     def todos(self):
         return PerfilSolicitante.objects.select_related("cuenta").all()
+
+
+class SolicitudRegistroRepositorioImpl(ISolicitudRegistroRepositorio):
+    def obtener(self, solicitud_id):
+        try:
+            return SolicitudRegistro.objects.filter(pk=solicitud_id).first()
+        except (ValueError, ValidationError):
+            return None
+
+    def hay_pendiente(self, correo="", dni=""):
+        pendientes = SolicitudRegistro.objects.filter(estado=EstadoRegistro.PENDIENTE)
+        filtro = Q()
+        if correo:
+            filtro |= Q(correo__iexact=correo.strip())
+        if dni:
+            filtro |= Q(dni=dni.strip())
+        return bool(filtro) and pendientes.filter(filtro).exists()
+
+    def ultima_por_correo(self, correo):
+        return (SolicitudRegistro.objects
+                .filter(correo__iexact=(correo or "").strip())
+                .order_by("-creado_en").first())
+
+    def guardar(self, solicitud):
+        solicitud.save()
+        return solicitud
+
+    def listar(self, estado=""):
+        solicitudes = SolicitudRegistro.objects.order_by("-creado_en")
+        if estado:
+            solicitudes = solicitudes.filter(estado=estado)
+        return solicitudes
+
+    def contar_pendientes(self):
+        return SolicitudRegistro.objects.filter(estado=EstadoRegistro.PENDIENTE).count()

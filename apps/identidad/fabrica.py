@@ -13,12 +13,15 @@ from django.db import transaction
 
 from apps.auditoria.fabrica import auditoria_servicio
 
+from .aplicacion.registro import RegistroServicioAplicacion
 from .aplicacion.servicios import UMBRAL_FRECUENTE_POR_DEFECTO, CuentaServicioAplicacion
 from .infraestructura.adaptadores import HistorialPrestamosAdaptador, SancionesAdaptador
+from .infraestructura.correo_registro import CorreoRegistroDjango
 from .infraestructura.django_password_hasher import DjangoPasswordHasher
 from .infraestructura.repositorio_django import (
     CuentaRepositorioImpl,
     PerfilSolicitanteRepositorioImpl,
+    SolicitudRegistroRepositorioImpl,
 )
 
 
@@ -33,5 +36,19 @@ def cuenta_servicio():
         umbral_frecuente=getattr(
             settings, "IDENTIDAD_PRESTAMOS_PARA_FRECUENTE", UMBRAL_FRECUENTE_POR_DEFECTO
         ),
+        transaccion=transaction.atomic,
+        solicitudes=SolicitudRegistroRepositorioImpl(),
+    )
+
+
+def registro_servicio(url_login=""):
+    """`url_login` (absoluta) va en el correo de aprobación; la arma la vista con el request."""
+    return RegistroServicioAplicacion(
+        SolicitudRegistroRepositorioImpl(),
+        CuentaRepositorioImpl(),
+        PerfilSolicitanteRepositorioImpl(),
+        DjangoPasswordHasher(),
+        correo=CorreoRegistroDjango(url_login),
+        auditoria=auditoria_servicio(),
         transaccion=transaction.atomic,
     )

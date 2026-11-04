@@ -29,9 +29,8 @@
                         <li class="nav-item"><a class="nav-link" href="{% url 'catalogo:buscar' %}">Catálogo</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'reservas:mias' %}">Mis reservas</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'notificaciones:mias' %}">Notificaciones</a></li>
-
-                        {# --- Encargado --- #}
-                        {% if menu.es_encargado %}
+                        {# --- Encargado y administrador --- #}
+                        {% if menu.es_encargado or menu.es_admin %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle"
                                    href="#"
@@ -61,6 +60,8 @@
                                 </ul>
                             </li>
                         {% endif %}
+
+                        {# --- Supervisor --- #}
                         {% if menu.es_supervisor %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'reservas:bandeja_supervisor' %}">
@@ -68,23 +69,27 @@
                                 </a>
                             </li>
                         {% endif %}
+
+                        {# --- Administrador --- #}
                         {% if menu.es_admin %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'identidad:cuentas' %}">
                                     Gestión de cuentas
                                 </a>
                             </li>
-
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'identidad:solicitudes' %}">
+                                    Registros
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'admin:app_list' app_label='politicas' %}">
+                                    Políticas
+                                </a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'reportes:lista' %}">
                                     Reportes
-                                </a>
-                            </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link"
-                                   href="{% url 'admin:app_list' app_label='politicas' %}">
-                                    Políticas
                                 </a>
                             </li>
                         {% endif %}

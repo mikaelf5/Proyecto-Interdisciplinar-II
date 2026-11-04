@@ -1,0 +1,12 @@
+Hola, {{ solicitud.nombres }}:
+
+Tu solicitud de registro en el Sistema de Préstamos fue APROBADA.
+
+Ya puedes iniciar sesión con tu correo ({{ solicitud.correo }}) y la contraseña que elegiste al registrarte.
+Rol(es) asignado(s): {{ roles|join:", " }}.
+{% if url_login %}
+Ingresa aquí: {{ url_login }}
+{% endif %}
+Recuerda que aceptaste el acta de responsabilidad ({{ solicitud.acta_version }}): cuida los recursos y devuélvelos a tiempo.
+
+— Sistema de Préstamos

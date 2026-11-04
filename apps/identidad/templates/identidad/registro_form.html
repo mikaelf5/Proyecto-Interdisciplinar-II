@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Solicitar una cuenta</h1>
+<p class="text-muted mb-4">Llena tus datos y sube un documento que acredite que eres de la escuela.
+    El administrador revisará tu solicitud y te avisará por correo. <b>Hasta que la apruebe no podrás iniciar sesión.</b></p>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card p-4 mb-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Tus datos</h2>
+                {% include "includes/campo.html" with campo=form.nombres %}
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.dni %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.celular %}</div>
+                </div>
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.tipo %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.cui %}</div>
+                </div>
+                {% include "includes/campo.html" with campo=form.direccion %}
+            </div>
+
+            <div class="card p-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Acreditación</h2>
+                {% include "includes/campo.html" with campo=form.tipo_documento %}
+                {% include "includes/campo.html" with campo=form.documento %}
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-4 mb-4">
+                <h2 class="h6 text-uppercase text-muted mb-3">Tu usuario</h2>
+                {% include "includes/campo.html" with campo=form.correo %}
+                <div class="row">
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.password1 %}</div>
+                    <div class="col-sm-6">{% include "includes/campo.html" with campo=form.password2 %}</div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <div class="border rounded p-3 bg-light small mb-2">
+                    <b>Acta de responsabilidad ({{ version_acta }})</b><br>{{ form.acta_aceptada.help_text }}
+                </div>
+                <div class="form-check mb-3">
+                    {{ form.acta_aceptada }}
+                    <label class="form-check-label" for="{{ form.acta_aceptada.id_for_label }}">{{ form.acta_aceptada.label }}</label>
+                    {% for error in form.acta_aceptada.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="border rounded p-3 bg-light small mb-2">
+                    <b>Datos personales — Ley N.° 29733 ({{ version_consentimiento }})</b><br>{{ form.consentimiento_aceptado.help_text }}
+                </div>
+                <div class="form-check">
+                    {{ form.consentimiento_aceptado }}
+                    <label class="form-check-label" for="{{ form.consentimiento_aceptado.id_for_label }}">{{ form.consentimiento_aceptado.label }}</label>
+                    {% for error in form.consentimiento_aceptado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+        <a href="{% url 'identidad:login' %}" class="btn btn-link">Ya tengo cuenta</a>
+    </div>
+</form>
+{% endblock %}

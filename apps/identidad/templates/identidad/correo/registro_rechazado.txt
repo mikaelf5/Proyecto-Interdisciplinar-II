@@ -1,0 +1,9 @@
+Hola, {{ solicitud.nombres }}:
+
+Tu solicitud de registro en el Sistema de Préstamos fue RECHAZADA.
+
+Motivo: {{ solicitud.motivo_rechazo }}
+
+Si corriges lo indicado, puedes enviar una nueva solicitud. Si crees que es un error, comunícate con la administración de la escuela.
+
+— Sistema de Préstamos

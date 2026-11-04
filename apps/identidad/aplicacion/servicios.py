@@ -28,6 +28,7 @@ from apps.identidad.dominio.excepciones import (
     DatosInvalidos,
     MotivoRequerido,
     OperacionNoPermitida,
+    RegistroNoAprobado,
 )
 from apps.identidad.dominio.habilitacion import ResultadoHabilitacion
 from apps.identidad.dominio.hasher import IPasswordHasher
@@ -88,6 +89,7 @@ class CuentaServicioAplicacion(ICuentaServicio):
         historial=None,
         umbral_frecuente=UMBRAL_FRECUENTE_POR_DEFECTO,
         transaccion=None,
+        solicitudes=None,
     ):
         self._cuentas = cuenta_repositorio
         self._perfiles = perfil_repositorio
@@ -98,6 +100,8 @@ class CuentaServicioAplicacion(ICuentaServicio):
         self._umbral_frecuente = umbral_frecuente
         # En producción la fábrica inyecta transaction.atomic; en pruebas sin BD no hace nada.
         self._transaccion = transaccion or nullcontext
+        # ISolicitudRegistroRepositorio: para avisar en el login si su registro sigue en revisión.
+        self._solicitudes = solicitudes
 
     # ------------------------------------------------------------------ #
     # RF-B4: inicio de sesión
@@ -110,6 +114,7 @@ class CuentaServicioAplicacion(ICuentaServicio):
         """
         cuenta = self._cuentas.por_correo(correo)
         if cuenta is None:
+            self._revisar_registro_sin_aprobar(correo, password)
             self._gastar_tiempo_como_si_verificara(password)
             raise CredencialesInvalidas("Correo o contraseña incorrectos.")
         if not cuenta.autenticar(password, self._hasher):
@@ -117,6 +122,28 @@ class CuentaServicioAplicacion(ICuentaServicio):
         if not cuenta.is_active:
             raise CuentaInactiva("Tu cuenta está desactivada. Comunícate con el administrador.")
         return cuenta
+
+    def _revisar_registro_sin_aprobar(self, correo, password):
+        """Si se registró sola y aún no la aprueban (o la rechazaron), se lo decimos.
+
+        Solo si la contraseña coincide: así nadie averigua el estado de un
+        registro ajeno probando correos.
+        """
+        if self._solicitudes is None:
+            return
+        solicitud = self._solicitudes.ultima_por_correo(correo)
+        if solicitud is None or not self._hasher.verificar(password or "", solicitud.password_hash):
+            return
+        if solicitud.esta_pendiente():
+            raise RegistroNoAprobado(
+                "Tu solicitud de registro está en revisión. Te avisaremos por correo "
+                "cuando el administrador la apruebe."
+            )
+        if solicitud.motivo_rechazo:
+            raise RegistroNoAprobado(
+                f"Tu solicitud de registro fue rechazada: {solicitud.motivo_rechazo} "
+                "Puedes enviar una nueva solicitud."
+            )
 
     def _gastar_tiempo_como_si_verificara(self, password):
         global _HASH_FICTICIO

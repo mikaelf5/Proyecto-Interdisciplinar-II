@@ -10,6 +10,8 @@ Regla de la capa: los métodos de dominio validan y cambian el estado en memoria
 pero NO guardan. Guardar es trabajo del repositorio (capa de infraestructura),
 que invoca el servicio de aplicación.
 """
+import uuid
+
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -21,9 +23,14 @@ from django.db import models
 from apps.common.choices import EtiquetaEstado, RolSistema, TipoUsuario
 from apps.common.models import BaseModel
 
-from .excepciones import ActaYaFirmada, RolInvalido
+from .excepciones import ActaYaFirmada, RolInvalido, SolicitudYaRevisada
 from .hasher import IPasswordHasher
-from .validadores import validar_celular, validar_cui, validar_dni
+from .validadores import (
+    validar_celular,
+    validar_correo_institucional,
+    validar_cui,
+    validar_dni,
+)
 
 # Roles que son "personal" de la escuela (no solo solicitantes).
 ROLES_PERSONAL = (RolSistema.ADMINISTRADOR, RolSistema.ENCARGADO, RolSistema.SUPERVISOR)
@@ -241,3 +248,108 @@ class PerfilSolicitante(BaseModel):
 
     def esta_habilitado(self):
         return not self.motivos_de_inhabilitacion()
+
+
+# ====================================================================== #
+# Registro por autoservicio: la persona llena el formulario y el
+# Administrador lo aprueba (crea la Cuenta y le da el rol) o lo rechaza.
+# ====================================================================== #
+class EstadoRegistro(models.TextChoices):
+    PENDIENTE = "PENDIENTE", "Pendiente"
+    APROBADA = "APROBADA", "Aprobada"
+    RECHAZADA = "RECHAZADA", "Rechazada"
+
+
+class TipoDocumentoAcreditacion(models.TextChoices):
+    CARNE_UNIVERSITARIO = "CARNE_UNIVERSITARIO", "Carné universitario vigente"
+    CONSTANCIA_MATRICULA = "CONSTANCIA_MATRICULA", "Constancia de matrícula"
+    OTRO = "OTRO", "Otro documento institucional"
+
+
+def _ruta_documento(instancia, nombre_original):
+    """Se guarda con un nombre aleatorio: el nombre original puede traer datos personales."""
+    extension = nombre_original.rsplit(".", 1)[-1].lower() if "." in nombre_original else "bin"
+    return f"registro/{uuid.uuid4().hex}.{extension}"
+
+
+class SolicitudRegistro(BaseModel):
+    """Lo que la persona envía al registrarse sola. NO es una Cuenta todavía.
+
+    ¿Por qué un agregado aparte y no una Cuenta inactiva?
+    - La tabla de cuentas solo guarda personas aprobadas: nadie sin revisar
+      aparece en listados, reportes ni búsquedas de solicitantes.
+    - "Inactiva" ya significa "desactivada por el administrador"; mezclar los
+      dos casos confundiría el login y la auditoría.
+    - Si la rechazan, el correo y el DNI quedan libres para volver a intentarlo.
+    La contraseña se guarda YA hasheada; al aprobar, el hash pasa a la Cuenta.
+    """
+
+    nombres = models.CharField(max_length=150)
+    dni = models.CharField("DNI", max_length=15, validators=[validar_dni])
+    correo = models.EmailField("correo", validators=[validar_correo_institucional])
+    password_hash = models.CharField(max_length=128)
+    celular = models.CharField(max_length=20, validators=[validar_celular])
+    direccion = models.CharField("dirección", max_length=255)
+    tipo = models.CharField("tipo declarado", max_length=20, choices=TipoUsuario.choices)
+    cui = models.CharField("CUI", max_length=20, blank=True, validators=[validar_cui])
+    tipo_documento = models.CharField(
+        "documento que acredita", max_length=30, choices=TipoDocumentoAcreditacion.choices
+    )
+    documento = models.FileField("archivo del documento", upload_to=_ruta_documento)
+    acta_version = models.CharField("versión del acta", max_length=20)
+    acta_fecha = models.DateField("fecha de aceptación del acta")
+    consentimiento_version = models.CharField("versión del consentimiento", max_length=20)
+    consentimiento_fecha = models.DateTimeField("fecha del consentimiento")
+    estado = models.CharField(
+        max_length=20, choices=EstadoRegistro.choices, default=EstadoRegistro.PENDIENTE
+    )
+    motivo_rechazo = models.CharField(max_length=500, blank=True)
+    revisado_por_id = models.UUIDField(null=True, blank=True)
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    cuenta = models.OneToOneField(
+        Cuenta, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="solicitud_registro", help_text="Cuenta creada al aprobar.",
+    )
+
+    class Meta:
+        app_label = "identidad"
+        verbose_name = "solicitud de registro"
+        verbose_name_plural = "solicitudes de registro"
+        ordering = ["-creado_en"]
+        constraints = [
+            # Una sola solicitud PENDIENTE por correo y por DNI (las rechazadas no cuentan).
+            models.UniqueConstraint(
+                fields=["correo"], condition=models.Q(estado="PENDIENTE"),
+                name="unique_registro_pendiente_por_correo",
+            ),
+            models.UniqueConstraint(
+                fields=["dni"], condition=models.Q(estado="PENDIENTE"),
+                name="unique_registro_pendiente_por_dni",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Solicitud de {self.nombres} <{self.correo}> ({self.get_estado_display()})"
+
+    def esta_pendiente(self):
+        return self.estado == EstadoRegistro.PENDIENTE
+
+    def exigir_pendiente(self):
+        if not self.esta_pendiente():
+            raise SolicitudYaRevisada(
+                f"La solicitud ya fue {self.get_estado_display().lower()}."
+            )
+
+    def aprobar(self, cuenta, revisor_id, fecha):
+        self.exigir_pendiente()
+        self.estado = EstadoRegistro.APROBADA
+        self.cuenta = cuenta
+        self.revisado_por_id = revisor_id
+        self.fecha_revision = fecha
+
+    def rechazar(self, motivo, revisor_id, fecha):
+        self.exigir_pendiente()
+        self.estado = EstadoRegistro.RECHAZADA
+        self.motivo_rechazo = motivo
+        self.revisado_por_id = revisor_id
+        self.fecha_revision = fecha
