@@ -171,7 +171,7 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
         return ItemDTO.desde(self.items.buscar_por_id(item_id))
 
     def es_especial(self, item_id=None, categoria_id=None):
-        """Lo usa Circulación (ServicioDeAprobacion) para saber si va a supervisor."""
+        """Permite consultar si un artículo requiere autorización de supervisor."""
         if item_id:
             return self.items.buscar_por_id(item_id).categoria.es_especial
         if categoria_id:

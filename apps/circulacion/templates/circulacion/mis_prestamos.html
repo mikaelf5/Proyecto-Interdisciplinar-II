@@ -1,0 +1,44 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Mis préstamos</h1>
+
+{% if prestamos %}
+    <table>
+        <thead>
+            <tr>
+                <th>Artículo</th>
+                <th>Estado</th>
+                <th>Fecha de entrega</th>
+                <th>Vencimiento</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for registro in prestamos %}
+                <tr>
+                    <td>{{ registro.articulo }}</td>
+                    <td>{{ registro.prestamo.estado }}</td>
+                    <td>{{ registro.prestamo.fecha_entrega }}</td>
+                    <td>{{ registro.prestamo.fecha_vencimiento }}</td>
+
+                    <td>
+                        {% if registro.puede_renovar %}
+                            <a href="{% url 'circulacion:renovar_prestamo' registro.prestamo.id %}">
+                                <button type="button">Renovar</button>
+                            </a>
+                        {% else %}
+                            No disponible
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No tienes préstamos registrados.</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,52 @@
+ {% extends "base.html" %}
+
+{% block content %}
+
+<h1>Préstamos vencidos</h1>
+
+<form method="get">
+    <input
+        type="text"
+        name="q"
+        placeholder="Buscar por artículo o solicitante"
+        value="{{ request.GET.q }}"
+    >
+    <button type="submit">Buscar</button>
+    <a href="{% url 'circulacion:prestamos_vencidos' %}">Limpiar</a>
+</form>
+
+{% if prestamos %}
+
+<table>
+    <thead>
+        <tr>
+            <th>Artículo</th>
+            <th>Solicitante</th>
+            <th>Fecha de entrega</th>
+            <th>Fecha de vencimiento</th>
+            <th>Tiempo vencido</th>
+            <th>Estado</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for registro in prestamos %}
+        <tr>
+            <td>{{ registro.articulo }}</td>
+            <td>{{ registro.solicitante }}</td>
+            <td>{{ registro.prestamo.fecha_entrega }}</td>
+            <td>{{ registro.prestamo.fecha_vencimiento }}</td>
+            <td>{{ registro.tiempo_vencido }}</td>
+            <td>{{ registro.prestamo.estado }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% else %}
+
+<p>No se encontraron préstamos vencidos.</p>
+
+{% endif %}
+
+{% endblock %}

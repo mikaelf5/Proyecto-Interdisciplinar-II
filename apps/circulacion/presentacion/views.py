@@ -1,157 +1,462 @@
 """Vistas HTTP de Circulación: autorización en servidor y comandos por POST."""
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import HttpResponseNotAllowed
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.views import View
-from django.views.generic import ListView, CreateView, DetailView
+from django.views.generic import ListView
+from apps.identidad.presentacion.permisos import RolRequeridoMixin
 
-from apps.common.choices import EstadoSolicitud, RolSistema
-from apps.circulacion.models import Solicitud
-from apps.circulacion.presentacion.forms import SolicitudForm
-from apps.circulacion.aplicacion.dtos import SolicitudDTO
-from apps.circulacion.fabrica import solicitud_servicio
+from apps.common.choices import (
+    RolSistema,
+    EstadoPrestamo,
+    EstadoReserva,
+)
+
+from apps.circulacion.presentacion.forms import (
+    EntregaPrestamoForm,
+    DevolucionForm,
+    RenovarPrestamoForm,
+)
+
+from apps.circulacion.aplicacion.dtos import (
+    EntregaPrestamoDTO,
+    DevolucionDTO,
+)
+
+from apps.circulacion.fabrica import prestamo_servicio
+class EntregasHoyView(RolRequeridoMixin, ListView):
+    roles_permitidos = [RolSistema.ENCARGADO]
+    template_name = "circulacion/entregas_hoy.html"
+    context_object_name = "reservas"
 
 
-class SolicitudListView(LoginRequiredMixin, ListView):
-    model = Solicitud
-    template_name = "circulacion/solicitud_list.html"
-    context_object_name = "solicitudes"
-    paginate_by = 15
 
+    def get_queryset(self):
+        servicio = prestamo_servicio()
+        catalogo = servicio.catalogo
+        identidad = servicio.identidad
 
-class SolicitudCreateView(LoginRequiredMixin, CreateView):
-    model = Solicitud
-    form_class = SolicitudForm
-    template_name = "circulacion/solicitud_form.html"
-    success_url = reverse_lazy("circulacion:solicitudes")
+        reservas = servicio.reservas.confirmadas_de_hoy()
+        resultado = []
 
-    def get_initial(self):
-        inicial = super().get_initial()
-        item_id = self.request.GET.get("item")
-        if item_id:
-            inicial["item_id"] = item_id
-        return inicial
+        for reserva in reservas:
+            item = catalogo.obtener_item(reserva.item_id)
+            solicitante = identidad.obtener_cuenta(reserva.solicitante_id)
+
+            resultado.append({
+                "reserva": reserva,
+                "item": item,
+                "solicitante": solicitante,
+            })
+
+        return resultado
 
     def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        item_id = self.request.GET.get("item")
-        if item_id:
-            from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
+        context = super().get_context_data(**kwargs)
+
+        servicio = prestamo_servicio()
+        catalogo = servicio.catalogo
+        identidad = servicio.identidad
+
+        prestamos = servicio.entregados_hoy()
+        resultado = []
+
+        for prestamo in prestamos:
+            item = catalogo.obtener_item(prestamo.item_id)
+            solicitante = identidad.obtener_cuenta(prestamo.solicitante_id)
+
+            resultado.append({
+                "prestamo": prestamo,
+                "item": item,
+                "solicitante": solicitante,
+            })
+
+        context["prestamos_realizados"] = resultado
+
+        return context
+class RegistrarEntregaView(RolRequeridoMixin, View):
+    roles_permitidos = [RolSistema.ENCARGADO]
+
+    http_method_names = ["get", "post", "options"]
+
+    def get(self, request, reserva_id):
+        servicio = prestamo_servicio()
+
+        try:
+            reserva = servicio.reservas.obtener(reserva_id)
+        except ValidationError:
+            messages.error(request, "No se encontró la reserva.")
+            return redirect("circulacion:entregas_hoy")
+
+        if reserva.estado != EstadoReserva.CONFIRMADA:
+            messages.error(
+                request,
+                "Esta reserva ya no está pendiente de entrega."
+            )
+            return redirect("circulacion:entregas_hoy")
+
+        form = EntregaPrestamoForm()
+
+        return render(
+            request,
+            "circulacion/registrar_entrega.html",
+            {
+                "form": form,
+                "reserva": reserva,
+            }
+        )
+
+    def post(self, request, reserva_id):
+        form = EntregaPrestamoForm(request.POST)
+
+        if form.is_valid():
+            datos = form.cleaned_data
+
+            dto = EntregaPrestamoDTO(
+                reserva_id=reserva_id,
+                encargado_id=request.user.id,
+                garantia_tipo=datos["garantia_tipo"],
+                garantia_detalle=datos["garantia_detalle"],
+                terminos_aceptados=datos["terminos_aceptados"],
+                descripcion_condicion=datos["descripcion_condicion"],
+            )
+
             try:
-                ctx["item"] = CatalogoServicioAplicacion().obtener_item(item_id)
-            except ValidationError:
-                ctx["item"] = None
-        return ctx
+                prestamo_servicio().registrar_entrega(dto)
 
-    def form_valid(self, form):
-        datos = form.cleaned_data
-        dto = SolicitudDTO(
-            item_id=datos["item_id"],
-            categoria_id=datos["categoria_id"],
-            solicitante_id=self.request.user.id,
-            fecha_inicio=datos["fecha_inicio"],
-            fecha_fin=datos["fecha_fin"],
-            finalidad=datos.get("finalidad", ""),
-        )
-        try:
-            self.object = solicitud_servicio().solicitar(dto)
-        except ValidationError as error:
-            form.add_error(None, error)
-            return self.form_invalid(form)
-        
-        messages.success(self.request, "Solicitud registrada.")
-        return redirect(self.get_success_url())
+            except ValidationError as error:
+                form.add_error(None, error)
 
+            else:
+                messages.success(
+                    request,
+                    "La entrega se registró correctamente."
+                )
+                return redirect("circulacion:entregas_hoy")
 
-class SolicitudDetailView(LoginRequiredMixin, DetailView):
-    model = Solicitud
-    template_name = "circulacion/solicitud_detail.html"
-    context_object_name = "solicitud"
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        solicitud = self.object
-        usuario = self.request.user
-        encargado = usuario.tiene_rol(RolSistema.ENCARGADO)
-        supervisor = usuario.tiene_rol(RolSistema.SUPERVISOR)
-        pendiente = solicitud.estado == EstadoSolicitud.PENDIENTE
-        espera = solicitud.estado == EstadoSolicitud.EN_ESPERA_SUPERVISOR
-        ctx.update(
-            puede_aprobar=encargado and pendiente,
-            puede_aprobar_supervisor=supervisor and espera,
-            puede_rechazar=(encargado and pendiente) or (supervisor and espera),
-            puede_cancelar=pendiente and solicitud.solicitante_id == usuario.id,
-        )
-        return ctx
-
-
-class SolicitudAccionView(LoginRequiredMixin, View):
-    """Nunca modifica solicitudes por GET."""
-    http_method_names = ["post", "options"]
-    accion = None
-
-    def post(self, request, pk):
-        solicitud = get_object_or_404(Solicitud, pk=pk)
-        usuario = request.user
-        encargado = usuario.tiene_rol(RolSistema.ENCARGADO)
-        supervisor = usuario.tiene_rol(RolSistema.SUPERVISOR)
-        pendiente = solicitud.estado == EstadoSolicitud.PENDIENTE
-        espera = solicitud.estado == EstadoSolicitud.EN_ESPERA_SUPERVISOR
-
-        if self.accion == "aprobar":
-            if not encargado:
-                raise PermissionDenied("Se requiere el rol Encargado.")
-            if not pendiente:
-                raise PermissionDenied("La solicitud no está pendiente.")
-            # Fallar cerrado: no aprobar sin comprobar si el ítem es especial.
-            # Cuando Catálogo esté integrado, inyectar su servicio en la fábrica.
-            servicio = solicitud_servicio()
-            if servicio.aprobacion is None:
-                messages.error(request, "Aprobación no disponible hasta integrar Catálogo.")
-                return redirect("circulacion:solicitud_detalle", pk=pk)
-            operacion = lambda: servicio.aprobar(pk, usuario.id)
-        elif self.accion == "aprobar_supervisor":
-            if not supervisor or not espera:
-                raise PermissionDenied("No puede aprobar esta solicitud como supervisor.")
-            operacion = lambda: solicitud_servicio().aprobar_como_supervisor(pk, usuario.id)
-        elif self.accion == "rechazar":
-            if not ((encargado and pendiente) or (supervisor and espera)):
-                raise PermissionDenied("No puede rechazar esta solicitud.")
-            motivo = request.POST.get("motivo", "").strip()
-            if not motivo:
-                messages.error(request, "Debe indicar el motivo del rechazo.")
-                return redirect("circulacion:solicitud_detalle", pk=pk)
-            operacion = lambda: solicitud_servicio().rechazar(pk, usuario.id, motivo)
-        elif self.accion == "cancelar":
-            if solicitud.solicitante_id != usuario.id or not pendiente:
-                raise PermissionDenied("Solo el propietario puede cancelar una solicitud pendiente.")
-            operacion = lambda: solicitud_servicio().cancelar(pk)
-        else:
-            return HttpResponseNotAllowed(["POST"])
+        servicio = prestamo_servicio()
 
         try:
-            operacion()
-        except ValidationError as error:
-            messages.error(request, "; ".join(error.messages))
-        else:
-            messages.success(request, "Operación realizada correctamente.")
-        return redirect("circulacion:solicitud_detalle", pk=pk)
+            reserva = servicio.reservas.obtener(reserva_id)
+        except ValidationError:
+            messages.error(request, "No se encontró la reserva.")
+            return redirect("circulacion:entregas_hoy")
+
+        return render(
+            request,
+            "circulacion/registrar_entrega.html",
+            {
+                "form": form,
+                "reserva": reserva,
+            }
+        )
+class DevolucionesView(RolRequeridoMixin, ListView):
+    roles_permitidos = [RolSistema.ENCARGADO]
+
+    template_name = "circulacion/devoluciones.html"
+    context_object_name = "prestamos"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.tiene_rol(RolSistema.ENCARGADO):
+            raise PermissionDenied("Se requiere el rol Encargado.")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        servicio = prestamo_servicio()
+        resultado = []
+
+        for prestamo in servicio.abiertos():
+            item = servicio.catalogo.obtener_item(prestamo.item_id)
+            solicitante = servicio.identidad.obtener_cuenta(
+                prestamo.solicitante_id
+            )
+
+            nombre_articulo = (
+                f"{item.codigo} — "
+                f"{item.atributos.get('marca', '')} "
+                f"{item.atributos.get('modelo', '')}"
+            ).strip()
+
+            resultado.append({
+                "prestamo": prestamo,
+                "articulo": nombre_articulo,
+                "solicitante": solicitante,
+            })
+
+        return resultado
 
 
-class AprobarSolicitudView(SolicitudAccionView):
-    accion = "aprobar"
+class RegistrarDevolucionView(RolRequeridoMixin, View):
+    roles_permitidos = [RolSistema.ENCARGADO]
+
+    http_method_names = ["get", "post", "options"]
+
+    def obtener_prestamo(self, prestamo_id):
+        servicio = prestamo_servicio()
+
+        prestamo = next(
+            (
+                p for p in servicio.abiertos()
+                if p.id == prestamo_id
+            ),
+            None
+        )
+
+        return servicio, prestamo
+
+    def get(self, request, prestamo_id):
+        servicio, prestamo = self.obtener_prestamo(prestamo_id)
+
+        if prestamo is None:
+            messages.error(request, "No se encontró un préstamo abierto.")
+            return redirect("circulacion:devoluciones")
+
+        item = servicio.catalogo.obtener_item(prestamo.item_id)
+        solicitante = servicio.identidad.obtener_cuenta(
+            prestamo.solicitante_id
+        )
+
+        return render(
+            request,
+            "circulacion/registrar_devolucion.html",
+            {
+                "form": DevolucionForm(),
+                "prestamo": prestamo,
+                "item": item,
+                "solicitante": solicitante,
+            }
+        )
+
+    def post(self, request, prestamo_id):
+        form = DevolucionForm(request.POST)
+
+        if form.is_valid():
+            datos = form.cleaned_data
+
+            dto = DevolucionDTO(
+                prestamo_id=prestamo_id,
+                encargado_id=request.user.id,
+                descripcion_condicion=datos["descripcion_condicion"],
+                garantia_devuelta=datos["garantia_devuelta"],
+                item_daniado=datos["item_daniado"],
+            )
+
+            try:
+                prestamo_servicio().registrar_devolucion(dto)
+
+            except ValidationError as error:
+                form.add_error(None, error)
+
+            else:
+                messages.success(
+                    request,
+                    "La devolución se registró correctamente."
+                )
+                return redirect("circulacion:devoluciones")
+
+        servicio, prestamo = self.obtener_prestamo(prestamo_id)
+
+        if prestamo is None:
+            messages.error(request, "No se encontró un préstamo abierto.")
+            return redirect("circulacion:devoluciones")
+
+        item = servicio.catalogo.obtener_item(prestamo.item_id)
+        solicitante = servicio.identidad.obtener_cuenta(
+            prestamo.solicitante_id
+        )
+
+        return render(
+            request,
+            "circulacion/registrar_devolucion.html",
+            {
+                "form": form,
+                "prestamo": prestamo,
+                "item": item,
+                "solicitante": solicitante,
+            }
+        )
 
 
-class AprobarSupervisorView(SolicitudAccionView):
-    accion = "aprobar_supervisor"
+class MisPrestamosView(LoginRequiredMixin, ListView):
+    template_name = "circulacion/mis_prestamos.html"
+    context_object_name = "prestamos"
+
+    def get_queryset(self):
+        servicio = prestamo_servicio()
+        historial = servicio.historial_de(self.request.user.id)
+
+        resultado = []
+
+        for prestamo in historial:
+            item = servicio.catalogo.obtener_item(prestamo.item_id)
+
+            nombre_articulo = (
+                f"{item.codigo} — "
+                f"{item.atributos.get('marca', '')} "
+                f"{item.atributos.get('modelo', '')}"
+            ).strip()
+
+            puede_renovar = (
+                prestamo.estado == EstadoPrestamo.ACTIVO
+                or prestamo.estado == EstadoPrestamo.ACTIVO.value
+            )
+
+            resultado.append({
+                "prestamo": prestamo,
+                "articulo": nombre_articulo,
+                "puede_renovar": puede_renovar,
+            })
+
+        return resultado
 
 
-class RechazarSolicitudView(SolicitudAccionView):
-    accion = "rechazar"
+class RenovarPrestamoView(LoginRequiredMixin, View):
+    http_method_names = ["get", "post", "options"]
 
+    def obtener_prestamo(self, request, prestamo_id):
+        servicio = prestamo_servicio()
 
-class CancelarSolicitudView(SolicitudAccionView):
-    accion = "cancelar"
+        historial = servicio.historial_de(request.user.id)
+
+        prestamo = next(
+            (p for p in historial if p.id == prestamo_id),
+            None
+        )
+
+        if prestamo is None:
+            raise PermissionDenied(
+                "No tienes autorización para renovar este préstamo."
+            )
+
+        return servicio, prestamo
+
+    def get(self, request, prestamo_id):
+        servicio, prestamo = self.obtener_prestamo(
+            request, prestamo_id
+        )
+
+        if prestamo.estado != EstadoPrestamo.ACTIVO:
+            messages.error(request, "Este préstamo no está activo.")
+            return redirect("circulacion:mis_prestamos")
+
+        try:
+            reserva = servicio.reservas.obtener(prestamo.reserva_id)
+        except ValidationError:
+            messages.error(request, "No se encontró la reserva asociada.")
+            return redirect("circulacion:mis_prestamos")
+
+        item = servicio.catalogo.obtener_item(prestamo.item_id)
+
+        return render(
+            request,
+            "circulacion/renovar_prestamo.html",
+            {
+                "prestamo": prestamo,
+                "reserva": reserva,
+                "item": item,
+                "form": RenovarPrestamoForm(),
+            }
+        )
+
+    def post(self, request, prestamo_id):
+        servicio, prestamo = self.obtener_prestamo(
+            request, prestamo_id
+        )
+
+        form = RenovarPrestamoForm(request.POST)
+
+        if form.is_valid():
+            try:
+                servicio.renovar(
+                    prestamo_id,
+                    form.cleaned_data["nueva_hora_fin"]
+                )
+
+            except ValidationError as error:
+                messages.error(request, "; ".join(error.messages))
+
+            else:
+                messages.success(
+                    request,
+                    "El préstamo se renovó correctamente."
+                )
+
+                return redirect("circulacion:mis_prestamos")
+
+        try:
+            reserva = servicio.reservas.obtener(prestamo.reserva_id)
+        except ValidationError:
+            messages.error(request, "No se encontró la reserva asociada.")
+            return redirect("circulacion:mis_prestamos")
+
+        item = servicio.catalogo.obtener_item(prestamo.item_id)
+
+        return render(
+            request,
+            "circulacion/renovar_prestamo.html",
+            {
+                "prestamo": prestamo,
+                "reserva": reserva,
+                "item": item,
+                "form": form,
+            }
+        )
+class PrestamosVencidosView(RolRequeridoMixin, ListView):
+    roles_permitidos = [RolSistema.ENCARGADO]
+
+    template_name = "circulacion/prestamos_vencidos.html"
+    context_object_name = "prestamos"
+
+    def get_queryset(self):
+        servicio = prestamo_servicio()
+        resultado = []
+
+        # Obtener el texto ingresado en el buscador.
+        busqueda = self.request.GET.get("q", "").strip().lower()
+
+        ahora = timezone.now()
+
+        for prestamo in servicio.listar_vencidos():
+            item = servicio.catalogo.obtener_item(prestamo.item_id)
+            solicitante = servicio.identidad.obtener_cuenta(
+                prestamo.solicitante_id
+            )
+
+            nombre_articulo = (
+                f"{item.codigo} — "
+                f"{item.atributos.get('marca', '')} "
+                f"{item.atributos.get('modelo', '')}"
+            ).strip()
+
+            # Filtrar por artículo o por los datos del solicitante.
+            if busqueda:
+                texto_articulo = nombre_articulo.lower()
+                texto_solicitante = (
+                    f"{solicitante.nombres} "
+                    f"{solicitante.dni} "
+                    f"{solicitante.correo}"
+                ).lower()
+
+                if (
+                    busqueda not in texto_articulo
+                    and busqueda not in texto_solicitante
+                ):
+                    continue
+
+            tiempo_vencido = ahora - prestamo.fecha_vencimiento
+
+            nombre_solicitante = (
+                f"{solicitante.nombres} — DNI: {solicitante.dni}"
+            )
+
+            resultado.append({
+                "prestamo": prestamo,
+                "articulo": nombre_articulo,
+                "solicitante": nombre_solicitante,
+                "tiempo_vencido": tiempo_vencido,
+            })
+
+        return resultado

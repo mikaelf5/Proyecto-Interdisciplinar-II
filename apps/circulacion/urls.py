@@ -1,18 +1,42 @@
 from django.urls import path
-from . import views
-from .presentacion.views import (
-    AprobarSolicitudView, AprobarSupervisorView,
-    RechazarSolicitudView, CancelarSolicitudView,
+
+from apps.circulacion.presentacion.views import (
+    EntregasHoyView,
+    RegistrarEntregaView,
+    DevolucionesView,
+    RegistrarDevolucionView,
+    MisPrestamosView,
+    RenovarPrestamoView,
+    PrestamosVencidosView,
 )
 
 app_name = "circulacion"
 
 urlpatterns = [
-    path("solicitudes/", views.SolicitudListView.as_view(), name="solicitudes"),
-    path("solicitudes/nueva/", views.SolicitudCreateView.as_view(), name="solicitud_nueva"),
-    path("solicitudes/<uuid:pk>/", views.SolicitudDetailView.as_view(), name="solicitud_detalle"),
-    path("solicitudes/<uuid:pk>/aprobar/", AprobarSolicitudView.as_view(), name="solicitud_aprobar"),
-    path("solicitudes/<uuid:pk>/aprobar-supervisor/", AprobarSupervisorView.as_view(), name="solicitud_aprobar_supervisor"),
-    path("solicitudes/<uuid:pk>/rechazar/", RechazarSolicitudView.as_view(), name="solicitud_rechazar"),
-    path("solicitudes/<uuid:pk>/cancelar/", CancelarSolicitudView.as_view(), name="solicitud_cancelar"),
+    # Entregas
+    path("entregas/", EntregasHoyView.as_view(), name="entregas_hoy"),
+    path(
+        "entregas/<uuid:reserva_id>/registrar/",
+        RegistrarEntregaView.as_view(),
+        name="registrar_entrega",
+    ),
+
+    # Devoluciones
+    path("devoluciones/", DevolucionesView.as_view(), name="devoluciones"),
+    path(
+        "devoluciones/<uuid:prestamo_id>/registrar/",
+        RegistrarDevolucionView.as_view(),
+        name="registrar_devolucion",
+    ),
+
+    # Historial y renovaciones
+    path("mis-prestamos/", MisPrestamosView.as_view(), name="mis_prestamos"),
+    path(
+        "mis-prestamos/<uuid:prestamo_id>/renovar/",
+        RenovarPrestamoView.as_view(),
+        name="renovar_prestamo",
+    ),
+
+    # Préstamos vencidos
+    path("vencidos/", PrestamosVencidosView.as_view(), name="prestamos_vencidos"),
 ]

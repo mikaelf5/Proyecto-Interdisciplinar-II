@@ -73,6 +73,10 @@ class IReservaServicio(ABC):
 
     @abstractmethod
     def liberar(self, reserva_id): ...
+    def liberar(self, reserva_id): ...
+
+    @abstractmethod
+    def finalizar_por_perdida(self, reserva_id): ...
 
 
 class ReservaServicioAplicacion(IReservaServicio):
@@ -259,6 +263,13 @@ class ReservaServicioAplicacion(IReservaServicio):
         self._pasar_turno_en(reserva.item_id, reserva.fecha)
         return ReservaDTO.desde(reserva)
 
+
+    @transaction.atomic
+    def finalizar_por_perdida(self, reserva_id):
+        reserva = self.repositorio.buscar_por_id(reserva_id)
+        reserva.finalizar()
+        self.repositorio.guardar(reserva)
+        return ReservaDTO.desde(reserva)
     # Consultas para las pantallas
 
     def obtener(self, reserva_id):

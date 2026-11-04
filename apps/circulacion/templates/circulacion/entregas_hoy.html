@@ -1,0 +1,113 @@
+
+{% extends "base.html" %}
+{% block title %}Entregas de hoy{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="mb-4">
+        <h2>Entregas de hoy</h2>
+        <p class="text-muted">
+            Control de reservas pendientes y préstamos entregados durante el día.
+        </p>
+    </div>
+
+    <!-- RESERVAS PENDIENTES -->
+    <section class="mb-5">
+        <h4 class="mb-3">Pendientes de entrega</h4>
+
+        {% if reservas %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Artículo</th>
+                            <th>Código</th>
+                            <th>Categoría</th>
+                            <th>Solicitante</th>
+                            <th>DNI</th>
+                            <th>Horario</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for registro in reservas %}
+                        <tr>
+                            <td>{{ registro.item.nombre }}</td>
+                            <td>{{ registro.item.codigo }}</td>
+                            <td>{{ registro.item.categoria_nombre }}</td>
+                            <td>{{ registro.solicitante.nombres }}</td>
+                            <td>{{ registro.solicitante.dni }}</td>
+                            <td>{{ registro.reserva.franja }}</td>
+                            <td>
+                                <span class="badge bg-warning text-dark">
+                                    Pendiente
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'circulacion:registrar_entrega' registro.reserva.id %}"
+                                   class="btn btn-primary btn-sm">
+                                    Entregar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No hay reservas pendientes de entrega para hoy.
+            </div>
+        {% endif %}
+    </section>
+
+    <hr class="my-4">
+
+    <!-- ENTREGAS REALIZADAS -->
+    <section>
+        <h4 class="mb-3">Entregas realizadas</h4>
+
+        {% if prestamos_realizados %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Artículo</th>
+                            <th>Código</th>
+                            <th>Solicitante</th>
+                            <th>DNI</th>
+                            <th>Fecha de entrega</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for registro in prestamos_realizados %}
+                        <tr>
+                            <td>{{ registro.item.nombre }}</td>
+                            <td>{{ registro.item.codigo }}</td>
+                            <td>{{ registro.solicitante.nombres }}</td>
+                            <td>{{ registro.solicitante.dni }}</td>
+                            <td>{{ registro.prestamo.fecha_entrega|date:"H:i" }}</td>
+                            <td>
+                                <span class="badge bg-success">
+                                    Realizada / Préstamo activo
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-secondary">
+                Todavía no se han realizado entregas durante el día.
+            </div>
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

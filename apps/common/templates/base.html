@@ -32,32 +32,63 @@
 
                         {# --- Encargado --- #}
                         {% if menu.es_encargado %}
-                            <li class="nav-item"><a class="nav-link" href="{% url 'circulacion:solicitudes' %}">Préstamos</a></li>
-                        {% endif %}
-
-                        {# --- Supervisor --- #}
-                        {% if menu.es_supervisor %}
-                            <li class="nav-item"><a class="nav-link" href="{% url 'reservas:bandeja_supervisor' %}">Bandeja</a></li>
-                        {% endif %}
-
-                        {# --- Administrador --- #}
-                        {% if menu.es_admin %}
-                            <li class="nav-item"><a class="nav-link" href="{% url 'identidad:cuentas' %}">Cuentas</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'admin:app_list' app_label='politicas' %}">Políticas</a></li>
-                            <li class="nav-item"><a class="nav-link" href="{% url 'reportes:lista' %}">Reportes</a></li>
-                        {% endif %}
-
-                        {# --- Otras pantallas del personal (Sanciones, Pérdidas, Auditoría) --- #}
-                        {% if menu.es_encargado or menu.es_admin %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Más</a>
+                                <a class="nav-link dropdown-toggle"
+                                   href="#"
+                                   role="button"
+                                   data-bs-toggle="dropdown">
+                                    Préstamos
+                                </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{% url 'sanciones:lista' %}">Sanciones</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'perdidas:lista' %}">Pérdidas</a></li>
-                                    {% if menu.es_admin %}<li><a class="dropdown-item" href="{% url 'auditoria:lista' %}">Auditoría</a></li>{% endif %}
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'circulacion:entregas_hoy' %}">
+                                            Entregas
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'circulacion:devoluciones' %}">
+                                            Devoluciones
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'circulacion:prestamos_vencidos' %}">
+                                            Préstamos vencidos
+                                        </a>
+                                    </li>
                                 </ul>
                             </li>
                         {% endif %}
+                        {% if menu.es_supervisor %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'reservas:bandeja_supervisor' %}">
+                                    Bandeja de reservas
+                                </a>
+                            </li>
+                        {% endif %}
+                        {% if menu.es_admin %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'identidad:cuentas' %}">
+                                    Gestión de cuentas
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'reportes:lista' %}">
+                                    Reportes
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link"
+                                   href="{% url 'admin:app_list' app_label='politicas' %}">
+                                    Políticas
+                                </a>
+                            </li>
+                        {% endif %}
+
 
                         <li class="nav-item"><a class="nav-link" href="{% url 'identidad:mi_perfil' %}">Mi perfil</a></li>
                         <li class="nav-item d-flex align-items-center ms-lg-3">

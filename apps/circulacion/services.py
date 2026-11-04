@@ -1,7 +1,11 @@
 """Compatibilidad con importaciones previas a las cuatro capas."""
-from .dominio.servicios import ServicioDeAprobacion, ServicioDeElegibilidad
+
+from .dominio.servicios import ServicioDeElegibilidad
+
 from .aplicacion.servicios import (
-    AprobarYEntregarPrestamo, RegistrarDevolucion, RenovarPrestamo,
-    SolicitudServicioAplicacion, PrestamoServicioAplicacion,
-    ISolicitudServicio, IPrestamoServicio,
+    PrestamoServicioAplicacion,
+    IPrestamoServicio,
+    AprobarYEntregarPrestamo,
+    RegistrarDevolucion,
+    RenovarPrestamo,
 )
