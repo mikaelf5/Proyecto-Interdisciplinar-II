@@ -153,6 +153,8 @@ class Reserva(BaseModel):
         })
         self.posicion_en_cola = None
 
+
+#Los utliza prestamos
     def marcar_atendida(self):
         """El encargado entregó el ítem (lo llama Préstamos)."""
         self._pasar(EstadoReserva.ATENDIDA, {EstadoReserva.CONFIRMADA})
