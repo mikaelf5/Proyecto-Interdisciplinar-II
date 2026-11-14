@@ -229,7 +229,7 @@ class AnularView(RolRequeridoMixin, View):
             messages.error(request, "Indica el motivo de la anulación.")
             return _volver(request, "reservas:mias")
         try:
-            _servicio().anular(pk, form.cleaned_data["motivo"])
+            _servicio().anular(pk, form.cleaned_data["motivo"], encargado_id=request.user.pk)
             messages.success(request, "Reserva anulada. Se avisó al solicitante.")
         except ValidationError as error:
             messages.error(request, _errores(error))

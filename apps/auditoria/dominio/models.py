@@ -9,6 +9,18 @@ class TipoAccion(models.TextChoices):
     RECHAZO = "RECHAZO", "Rechazo"
     SANCION = "SANCION", "Sanción"
     ITEM_DANIADO = "ITEM_DANIADO", "Ítem dañado"
+    # Las que registra Circulación (entrega, renovación y devolución de un préstamo).
+    ENTREGA_PRESTAMO = "ENTREGA_PRESTAMO", "Entrega de préstamo"
+    RENOVACION_PRESTAMO = "RENOVACION_PRESTAMO", "Renovación de préstamo"
+    DEVOLUCION_PRESTAMO = "DEVOLUCION_PRESTAMO", "Devolución de préstamo"
+
+
+# RF-J1: estas acciones sensibles siempre llevan su motivo.
+ACCIONES_CON_MOTIVO = frozenset({
+    TipoAccion.RECHAZO,
+    TipoAccion.ITEM_DANIADO,
+    TipoAccion.SANCION,
+})
 
 
 class RegistroAuditoria(BaseModel):

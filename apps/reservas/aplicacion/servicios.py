@@ -51,7 +51,7 @@ class IReservaServicio(ABC):
     def rechazar_supervisor(self, reserva_id, supervisor_id, motivo): ...
 
     @abstractmethod
-    def anular(self, reserva_id, motivo): ...
+    def anular(self, reserva_id, motivo, encargado_id=None): ...
 
     @abstractmethod
     def expirar_reservas(self, ahora=None): ...
@@ -81,13 +81,14 @@ class IReservaServicio(ABC):
 
 class ReservaServicioAplicacion(IReservaServicio):
     def __init__(self, repositorio=None, catalogo=None, notificaciones=None, identidad=None,
-                 politicas=None, horario=None, reloj=None):
+                 politicas=None, horario=None, reloj=None, auditoria=None):
         """Inyección de dependencias: en las pruebas se pasan versiones falsas."""
         self.repositorio = repositorio or ReservaRepositorioImpl()
         self.catalogo = catalogo or self._catalogo_por_defecto()
         self.notificaciones = notificaciones or self._notificaciones_por_defecto()
         self.identidad = identidad or self._identidad_por_defecto()
         self.politicas = politicas or self._politicas_por_defecto()
+        self.auditoria = auditoria or self._auditoria_por_defecto()
         self.horario = horario or HorarioAtencion.desde_settings()
         self.reloj = reloj or timezone.localtime
         self.asignador = AsignadorDeCola()
@@ -95,6 +96,15 @@ class ReservaServicioAplicacion(IReservaServicio):
         self.calculadora = CalculadoraDeHorarios(self.horario)
 
     # Los otros módulos se importan aquí adentro para no crear importaciones circulares.
+    @staticmethod
+    def _auditoria_por_defecto():
+        from apps.auditoria.fabrica import auditoria_servicio
+        return auditoria_servicio()
+
+    def _auditar(self, accion, reserva, motivo, actor_id):
+        """Deja constancia en la bitácora (RF-J1/J2)."""
+        self.auditoria.registrar(actor_id, accion, "Reserva", reserva.id, motivo)
+
     @staticmethod
     def _catalogo_por_defecto():
         from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
@@ -170,6 +180,7 @@ class ReservaServicioAplicacion(IReservaServicio):
             raise ValidationError("El horario de esta reserva ya empezó: ya no se puede aprobar.")
         reserva.aprobar_por_supervisor(supervisor_id)
         self.repositorio.guardar(reserva)
+        self._auditar("APROBACION", reserva, "Aprobada por el supervisor", supervisor_id)
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue aprobada por el supervisor.")
         return ReservaDTO.desde(reserva)
 
@@ -179,16 +190,20 @@ class ReservaServicioAplicacion(IReservaServicio):
         reserva = self.repositorio.buscar_por_id(reserva_id)
         reserva.rechazar_por_supervisor(supervisor_id, motivo)
         self.repositorio.guardar(reserva)
+        self._auditar("RECHAZO", reserva, reserva.motivo, supervisor_id)
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue rechazada. Motivo: {reserva.motivo}")
         self._pasar_turno_en(reserva.item_id, reserva.fecha)
         return ReservaDTO.desde(reserva)
 
     @transaction.atomic
-    def anular(self, reserva_id, motivo):
-        """Botón "Anular" de la agenda (encargado). Exige motivo y avisa al solicitante."""
+    def anular(self, reserva_id, motivo, encargado_id=None):
+        """Botón "Anular" de la agenda (encargado). Exige motivo, avisa al solicitante y
+        (con `encargado_id`) deja constancia en la auditoría."""
         reserva = self.repositorio.buscar_por_id(reserva_id)
         reserva.anular(motivo)
         self.repositorio.guardar(reserva)
+        if encargado_id:
+            self._auditar("CAMBIO_ESTADO", reserva, f"Reserva anulada: {reserva.motivo}", encargado_id)
         self._avisar(reserva, f"Tu reserva de {self._describir(reserva)} fue anulada. Motivo: {reserva.motivo}")
         self._pasar_turno_en(reserva.item_id, reserva.fecha)
         return ReservaDTO.desde(reserva)

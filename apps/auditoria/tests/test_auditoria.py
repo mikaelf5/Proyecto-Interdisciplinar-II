@@ -23,7 +23,8 @@ class AuditoriaServicioTests(TestCase):
         self.assertEqual(RegistroAuditoria.objects.filter(pk=registro.pk).count(), 1)
 
     def test_los_registros_no_se_pueden_borrar(self):
-        registro = auditoria_servicio().registrar(uuid.uuid4(), TipoAccion.RECHAZO, "Reserva", uuid.uuid4())
+        registro = auditoria_servicio().registrar(
+            uuid.uuid4(), TipoAccion.RECHAZO, "Reserva", uuid.uuid4(), "No hay disponibilidad")
         with self.assertRaises(Exception):
             registro.delete()
 

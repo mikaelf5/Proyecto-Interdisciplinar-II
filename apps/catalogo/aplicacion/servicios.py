@@ -44,13 +44,13 @@ class ICatalogoServicio(ABC):
     def editar_item(self, dto): ...
 
     @abstractmethod
-    def cambiar_estado_item(self, item_id, estado, motivo=""): ...
+    def cambiar_estado_item(self, item_id, estado, motivo="", actor_id=None): ...
 
     @abstractmethod
-    def marcar_daniado(self, item_id, motivo): ...
+    def marcar_daniado(self, item_id, motivo, actor_id=None): ...
 
     @abstractmethod
-    def dar_de_baja_item(self, item_id, motivo): ...
+    def dar_de_baja_item(self, item_id, motivo, actor_id=None): ...
 
     @abstractmethod
     def registrar_condicion(self, dto): ...
@@ -78,12 +78,21 @@ class ICatalogoServicio(ABC):
 
 
 class CatalogoServicioAplicacion(ICatalogoServicio):
-    def __init__(self, items=None, categorias=None, condiciones=None, reservas=None):
+    def __init__(self, items=None, categorias=None, condiciones=None, reservas=None, auditoria=None):
         """Inyección de dependencias: en las pruebas se pueden pasar versiones falsas."""
         self.items = items or ItemRepositorioImpl()
         self.categorias = categorias or CategoriaRepositorioImpl()
         self.condiciones = condiciones or CondicionFisicaRepositorioImpl()
         self._reservas = reservas
+        self._auditoria = auditoria  # si es None, se toma el servicio real al auditar
+
+    def _auditar(self, accion, item_id, motivo, actor_id):
+        """Deja constancia en la bitácora (RF-J1/J2). Se importa aquí para evitar ciclos."""
+        auditoria = self._auditoria
+        if auditoria is None:
+            from apps.auditoria.fabrica import auditoria_servicio
+            auditoria = auditoria_servicio()
+        auditoria.registrar(actor_id, accion, "Item", item_id, motivo)
 
     # Categorías
     @transaction.atomic
@@ -125,29 +134,48 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
             raise ValidationError(f"Ya existe un ítem con el código {codigo}.")
 
     @transaction.atomic
-    def cambiar_estado_item(self, item_id, estado, motivo=""):
-        """Botón "Poner disponible" (y Préstamos al entregar/devolver)."""
+    def cambiar_estado_item(self, item_id, estado, motivo="", actor_id=None):
+        """Botón "Poner disponible" (y Préstamos al entregar/devolver).
+
+        Con `actor_id` (acción hecha por una persona en pantalla) queda en la auditoría.
+        """
         item = self.items.buscar_por_id(item_id)
+        anterior = item.get_estado_display()
         item.cambiar_estado(estado, motivo)  # regla de dominio (máquina de estados)
         self.items.guardar_estado(item)
+        if actor_id:
+            detalle = f"Estado: {anterior} → {item.get_estado_display()}"
+            self._auditar("CAMBIO_ESTADO", item.id, f"{detalle}. {motivo}" if motivo else detalle, actor_id)
         return ItemDTO.desde(item)
 
     @transaction.atomic
-    def marcar_daniado(self, item_id, motivo):
-        """Botón "Marcar dañado": pasa a MANTENIMIENTO y anula sus reservas futuras."""
+    def marcar_daniado(self, item_id, motivo, actor_id=None):
+        """Botón "Marcar dañado": pasa a MANTENIMIENTO y anula sus reservas futuras.
+
+        El daño SIEMPRE queda en la auditoría (RF-J1): con quien lo marcó, o como "Sistema"
+        cuando lo dispara otro módulo (por ejemplo, una devolución dañada de Préstamos).
+        """
         item = self.items.buscar_por_id(item_id)
         item.marcar_daniado(motivo)
         self.items.guardar_estado(item)
         self._anular_reservas_futuras(item)
+        from apps.auditoria.dominio.constantes import SISTEMA_ID
+        self._auditar("ITEM_DANIADO", item.id, motivo, actor_id or SISTEMA_ID)
         return ItemDTO.desde(item)
 
     @transaction.atomic
-    def dar_de_baja_item(self, item_id, motivo):
-        """Botón "Dar de baja": retiro definitivo y anula sus reservas futuras."""
+    def dar_de_baja_item(self, item_id, motivo, actor_id=None):
+        """Botón "Dar de baja": retiro definitivo y anula sus reservas futuras.
+
+        Con `actor_id` (persona en pantalla) queda en la auditoría. Pérdidas ya deja
+        la suya cuando da de baja un ítem, por eso allí no se pasa.
+        """
         item = self.items.buscar_por_id(item_id)
         item.dar_de_baja(motivo)
         self.items.guardar_estado(item)
         self._anular_reservas_futuras(item)
+        if actor_id:
+            self._auditar("CAMBIO_ESTADO", item.id, f"Dado de baja: {motivo}", actor_id)
         return ItemDTO.desde(item)
 
     def _anular_reservas_futuras(self, item):

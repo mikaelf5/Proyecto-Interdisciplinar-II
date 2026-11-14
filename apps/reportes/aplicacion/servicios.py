@@ -184,9 +184,10 @@ def _sanciones_por_periodo(reporte, sanciones):
     )
 
 
-def _perdidas_por_periodo(reporte, casos, danios=(), nombres=None):
+def _perdidas_por_periodo(reporte, casos, danios=(), nombres=None, items=None):
     """Ítems perdidos (Gestión de Pérdidas) y dañados (auditoría ITEM_DANIADO)."""
     nombres = nombres or {}
+    items = items or {}
     costo_total = sum((c.costo_estimado for c in casos if c.costo_estimado), Decimal("0"))
     filas = []
     for c in casos:
@@ -198,8 +199,13 @@ def _perdidas_por_periodo(reporte, casos, danios=(), nombres=None):
         ]))
     for d in danios:
         local = timezone.localtime(d.fecha)
+        if d.entidad == "Item" and d.entidad_id in items:
+            codigo, nombre, _ = items[d.entidad_id]
+            referencia = f"Ítem {codigo} · {nombre}"
+        else:
+            referencia = f"{d.entidad} {_corto(d.entidad_id)}"
         filas.append((local.strftime("%Y%m%d"), [
-            local.strftime("%d/%m/%Y"), "Daño", f"{d.entidad} {_corto(d.entidad_id)}",
+            local.strftime("%d/%m/%Y"), "Daño", referencia,
             "—", d.motivo or "—", "—",
         ]))
     filas = [fila for _, fila in sorted(filas, key=lambda x: x[0])]
@@ -259,8 +265,12 @@ class ReporteServicioAplicacion:
         if reporte.tipo == TipoReporte.ITEMS_PERDIDOS_DANIADOS:
             casos = self._casos.por_periodo(inicio, fin)
             danios = self._fuente.danios_del_periodo(inicio, fin) if self._fuente else []
+            items = (
+                self._fuente.datos_de_items({d.entidad_id for d in danios if d.entidad == "Item"})
+                if self._fuente and danios else {}
+            )
             return _perdidas_por_periodo(
-                reporte, casos, danios, self._nombres({c.solicitante_id for c in casos})
+                reporte, casos, danios, self._nombres({c.solicitante_id for c in casos}), items
             )
         if self._fuente is None:
             raise ReporteNoDisponible(

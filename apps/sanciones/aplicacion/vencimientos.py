@@ -9,7 +9,6 @@ Qué hace cada vez que se ejecuta:
 Solo coordina: pide los préstamos a Circulación (puerto `prestamos`), avisa por el
 servicio de Notificaciones, nombra el ítem con Catálogo y deja constancia en Auditoría.
 """
-import uuid
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -18,8 +17,8 @@ from django.utils import timezone
 from apps.auditoria.models import TipoAccion
 from apps.common.choices import TipoNotificacion
 
-# Actor de las acciones automáticas (no las hace una persona).
-SISTEMA_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+# Actor de las acciones automáticas (no las hace una persona): vive en Auditoría.
+from apps.auditoria.dominio.constantes import SISTEMA_ID  # noqa: E402,F401
 
 
 @dataclass

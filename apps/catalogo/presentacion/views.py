@@ -219,7 +219,7 @@ class PonerDisponibleView(_AccionEncargadoView):
     mensaje_ok = "El ítem quedó disponible."
 
     def ejecutar(self, request, pk):
-        catalogo.cambiar_estado_item(pk, EstadoItem.DISPONIBLE)
+        catalogo.cambiar_estado_item(pk, EstadoItem.DISPONIBLE, actor_id=request.user.pk)
 
 
 class MarcarDaniadoView(_AccionEncargadoView):
@@ -227,7 +227,7 @@ class MarcarDaniadoView(_AccionEncargadoView):
     mensaje_ok = "El ítem pasó a mantenimiento. Sus reservas futuras se anularon y se avisó a cada solicitante."
 
     def ejecutar(self, request, pk):
-        catalogo.marcar_daniado(pk, request.POST.get("motivo", ""))
+        catalogo.marcar_daniado(pk, request.POST.get("motivo", ""), actor_id=request.user.pk)
 
 
 class DarDeBajaView(_AccionEncargadoView):
@@ -235,4 +235,4 @@ class DarDeBajaView(_AccionEncargadoView):
     mensaje_ok = "El ítem fue dado de baja. Sus reservas futuras se anularon y se avisó a cada solicitante."
 
     def ejecutar(self, request, pk):
-        catalogo.dar_de_baja_item(pk, request.POST.get("motivo", ""))
+        catalogo.dar_de_baja_item(pk, request.POST.get("motivo", ""), actor_id=request.user.pk)
