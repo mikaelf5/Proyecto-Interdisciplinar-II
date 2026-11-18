@@ -52,6 +52,19 @@ class PrestamoRepositorioImpl(IPrestamoRepositorio):
             estado=EstadoPrestamo.ACTIVO
         ).order_by("-fecha_entrega")
 
+    def entregados_entre(self, inicio, fin):
+        return Prestamo.objects.filter(
+            fecha_entrega__date__range=(inicio, fin)
+        ).order_by("fecha_entrega")
+
+    def devueltos_entre(self, item_ids, desde, hasta):
+        return Prestamo.objects.filter(
+            item_id__in=list(item_ids), fecha_devolucion_real__range=(desde, hasta)
+        ).order_by("fecha_devolucion_real")
+
+    def por_ids(self, ids):
+        return Prestamo.objects.filter(pk__in=list(ids))
+
     def abiertos(self):
         return Prestamo.objects.filter(
             estado__in=[

@@ -33,6 +33,10 @@ class IItemRepositorio(ABC):
     def buscar_por_codigo(self, codigo): ...
 
     @abstractmethod
+    def buscar_por_ids(self, ids):
+        """Varios ítems en UNA consulta (los que no existen simplemente no vienen)."""
+
+    @abstractmethod
     def buscar(self, filtros): ...
 
 

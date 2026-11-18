@@ -36,6 +36,10 @@ class IFuenteDeReportes(ABC):
         """Préstamos ENTREGADOS entre las dos fechas (inclusive) -> list[FilaPrestamo]."""
 
     @abstractmethod
+    def items_de_prestamos(self, prestamo_ids):
+        """{prestamo_id: item_id} (para decir qué ítem se perdió)."""
+
+    @abstractmethod
     def danios_del_periodo(self, inicio, fin):
         """Ítems dañados registrados en el periodo -> list[FilaDanio]."""
 
@@ -46,7 +50,3 @@ class IFuenteDeReportes(ABC):
     @abstractmethod
     def datos_de_items(self, ids):
         """{item_id: (codigo, nombre, categoria)}"""
-
-    def items_de_prestamos(self, prestamo_ids):
-        """{prestamo_id: item_id} — para decir QUÉ ítem se perdió."""
-        return {}

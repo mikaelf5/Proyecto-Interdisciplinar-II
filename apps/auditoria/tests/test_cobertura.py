@@ -157,7 +157,7 @@ class DevolucionDaniadaYReporteTests(TestCase):
             tipo=TipoReporte.ITEMS_PERDIDOS_DANIADOS, generado_por_id=uuid.uuid4(),
             periodo_inicio=date.today() - timedelta(days=1), periodo_fin=date.today())
         datos = reporte_servicio().generar_datos(reporte)
-        self.assertEqual(dict(datos.resumen)["Ítems dañados"], "1")
+        self.assertEqual(dict(datos.resumen)["Ítems dañados"], 1)
         fila = next(f for f in datos.filas if f[1] == "Daño")
         self.assertEqual(fila[2], "Ítem EQP-001 · Laptop")
         self.assertEqual(fila[4], "Pantalla rota")

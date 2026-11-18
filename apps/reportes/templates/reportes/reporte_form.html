@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}Editar reporte{% else %}Generar reporte{% endif %}{% endblock %}
+{% block title %}Generar reporte{% endblock %}
 
 {% block content %}
-<h1 class="h3 mb-3">{% if object %}Editar reporte{% else %}Generar reporte{% endif %}</h1>
+<h1 class="h3 mb-3">Generar reporte</h1>
 
 <div class="card p-4" style="max-width: 640px;">
     <form method="post" novalidate>
@@ -10,17 +10,54 @@
         {{ form.non_field_errors }}
 
         {% include "includes/campo.html" with campo=form.tipo etiqueta="Tipo de reporte" %}
+
+        <div class="mb-2">
+            <span class="text-muted small me-2">Periodo rápido:</span>
+            <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Periodos rápidos">
+                <button type="button" class="btn btn-outline-secondary" data-periodo="7dias">Últimos 7 días</button>
+                <button type="button" class="btn btn-outline-secondary" data-periodo="mes">Este mes</button>
+                <button type="button" class="btn btn-outline-secondary" data-periodo="mes_pasado">Mes pasado</button>
+                <button type="button" class="btn btn-outline-secondary" data-periodo="anio">Este año</button>
+            </div>
+        </div>
+
         {% include "includes/campo.html" with campo=form.periodo_inicio etiqueta="Desde" %}
         {% include "includes/campo.html" with campo=form.periodo_fin etiqueta="Hasta" %}
 
         <p class="text-muted small">
             Los reportes de préstamos (más prestados, usuarios más activos, tasa de devolución a tiempo)
             cuentan los préstamos <strong>entregados</strong> dentro del periodo. Los datos se calculan
-            al abrir el reporte, con la información actual.
+            al abrir el reporte, con la información actual. El periodo no puede pasar de hoy ni de un año.
         </p>
 
-        <button type="submit" class="btn btn-primary">{% if object %}Guardar{% else %}Generar{% endif %}</button>
+        <button type="submit" class="btn btn-primary">Generar</button>
         <a href="{% url 'reportes:lista' %}" class="btn btn-link">Cancelar</a>
     </form>
 </div>
+
+<script>
+(function () {
+    const inicio = document.getElementById("{{ form.periodo_inicio.id_for_label }}");
+    const fin = document.getElementById("{{ form.periodo_fin.id_for_label }}");
+    const iso = (d) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"),
+                        String(d.getDate()).padStart(2, "0")].join("-");
+    document.querySelectorAll("[data-periodo]").forEach((boton) => {
+        boton.addEventListener("click", () => {
+            const hoy = new Date();
+            let desde = new Date(hoy), hasta = new Date(hoy);
+            switch (boton.dataset.periodo) {
+                case "7dias": desde.setDate(hoy.getDate() - 6); break;
+                case "mes": desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1); break;
+                case "mes_pasado":
+                    desde = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+                    hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+                    break;
+                case "anio": desde = new Date(hoy.getFullYear(), 0, 1); break;
+            }
+            inicio.value = iso(desde);
+            fin.value = iso(hasta);
+        });
+    });
+})();
+</script>
 {% endblock %}

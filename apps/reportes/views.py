@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView
 
 from apps.common.choices import RolSistema
 from apps.identidad.presentacion.permisos import RolRequeridoMixin
@@ -65,29 +65,24 @@ class ReporteCreateView(_SoloAdministrador, CreateView):
         return reverse("reportes:detalle", args=[self.object.pk])
 
 
-class ReporteUpdateView(_SoloAdministrador, _ObtenerPorServicio, UpdateView):
-    model = Reporte
-    form_class = ReporteForm
-    template_name = "reportes/reporte_form.html"
-
-    def form_valid(self, form):
-        self.object = reporte_servicio().actualizar(form.save(commit=False))
-        return HttpResponseRedirect(self.get_success_url())
-
-    def get_success_url(self):
-        return reverse("reportes:detalle", args=[self.object.pk])
-
-
 class ReporteDetailView(_SoloAdministrador, _ObtenerPorServicio, DetailView):
     model = Reporte
     template_name = "reportes/reporte_detail.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        servicio = reporte_servicio()
         try:
-            ctx["datos"] = reporte_servicio().generar_datos(self.object)
+            datos = servicio.generar_datos(self.object)
         except ReporteNoDisponible as error:
             ctx["no_disponible"] = str(error)
+            return ctx
+        ctx["datos"] = datos
+        if datos.grafico and any(datos.grafico.valores):
+            ctx["grafico"] = {
+                "tipo": datos.grafico.tipo, "titulo": datos.grafico.titulo,
+                "etiquetas": datos.grafico.etiquetas, "valores": datos.grafico.valores,
+            }
         return ctx
 
 
@@ -97,7 +92,8 @@ class ReporteDeleteView(_SoloAdministrador, _ObtenerPorServicio, DeleteView):
     success_url = reverse_lazy("reportes:lista")
 
     def form_valid(self, form):
-        reporte_servicio().eliminar(self.object)
+        reporte_servicio().eliminar(self.object, actor_id_de(self.request))
+        messages.success(self.request, "Reporte eliminado.")
         return HttpResponseRedirect(self.get_success_url())
 
 
@@ -115,7 +111,7 @@ def exportar_reporte(request, pk, formato):
     if reporte is None:
         raise Http404("Reporte no encontrado")
     try:
-        contenido, content_type, nombre = servicio.exportar(reporte, formato)
+        contenido, content_type, nombre = servicio.exportar(reporte, formato, actor_id_de(request))
     except ReporteNoDisponible as error:
         messages.info(request, str(error))
         return redirect("reportes:lista")

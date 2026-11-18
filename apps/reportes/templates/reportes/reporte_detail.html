@@ -13,6 +13,10 @@
         <div>
             <h1 class="h3 mb-1">{{ datos.titulo }}</h1>
             <p class="text-muted mb-0">{{ datos.subtitulo }}</p>
+            <p class="text-muted small mb-0">
+                Pedido por {{ datos.generado_por|default:"—" }} el {{ object.creado_en|date:"d/m/Y H:i" }}
+                · datos calculados al {{ datos.generado_en|date:"d/m/Y H:i" }}
+            </p>
         </div>
         <div class="text-nowrap">
             <a href="{% url 'reportes:exportar' object.pk 'excel' %}" class="btn btn-outline-success">Descargar Excel</a>
@@ -21,7 +25,7 @@
     </div>
 
     <div class="row g-3 mb-3">
-        {% for etiqueta, valor in datos.resumen %}
+        {% for etiqueta, valor in datos.resumen_texto %}
         <div class="col-6 col-md-3 col-lg-2">
             <div class="card p-3 h-100">
                 <div class="text-muted small">{{ etiqueta }}</div>
@@ -31,6 +35,43 @@
         {% endfor %}
     </div>
 
+    {% if grafico %}
+    <div class="card p-3 mb-3">
+        <h2 class="h6 mb-3">{{ grafico.titulo }}</h2>
+        <div style="position: relative; height: {% if grafico.tipo == 'doughnut' %}260px{% else %}320px{% endif %};">
+            <canvas id="grafico-reporte" aria-label="{{ grafico.titulo }}" role="img"></canvas>
+        </div>
+    </div>
+    {{ grafico|json_script:"datos-grafico" }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        if (typeof Chart === "undefined") return;   // sin internet: la tabla sigue mostrando todo
+        const g = JSON.parse(document.getElementById("datos-grafico").textContent);
+        const colores = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#64748b"];
+        const esDona = g.tipo === "doughnut";
+        new Chart(document.getElementById("grafico-reporte"), {
+            type: esDona ? "doughnut" : "bar",
+            data: {
+                labels: g.etiquetas,
+                datasets: [{
+                    label: g.titulo,
+                    data: g.valores,
+                    backgroundColor: esDona ? colores : colores[0],
+                    borderWidth: esDona ? 2 : 0,
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: esDona ? undefined : "y",
+                plugins: { legend: { display: esDona, position: "right" } },
+                scales: esDona ? {} : { x: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+    })();
+    </script>
+    {% endif %}
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
@@ -38,7 +79,7 @@
                     <tr>{% for c in datos.columnas %}<th>{{ c }}</th>{% endfor %}</tr>
                 </thead>
                 <tbody>
-                    {% for fila in datos.filas %}
+                    {% for fila in datos.filas_texto %}
                     <tr>{% for valor in fila %}<td>{{ valor }}</td>{% endfor %}</tr>
                     {% empty %}
                     <tr><td colspan="{{ datos.columnas|length }}" class="text-center text-muted py-4">No hay registros en este periodo.</td></tr>
@@ -47,6 +88,9 @@
             </table>
         </div>
     </div>
-    <p class="text-muted small mt-2">Los datos se calculan al abrir el reporte, con la información actual.</p>
+    {% if datos.recortado %}
+    <p class="text-muted small mt-2">En pantalla se muestran los primeros {{ datos.filas|length }} de {{ datos.total_filas }}. Las descargas traen la lista completa.</p>
+    {% endif %}
+    <p class="text-muted small mt-2">Los datos se calculan al abrir el reporte, con la información actual. Contiene datos personales (Ley N.° 29733): uso interno.</p>
 {% endif %}
 {% endblock %}

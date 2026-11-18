@@ -54,8 +54,9 @@ class CasoPerdidaListView(_SoloPersonal, ListView):
             abiertos=servicio.contar_abiertos(),
         )
         nombres = _nombres_de({c.solicitante_id for c in ctx["casos"]})
+        items = servicio.items_perdidos(ctx["casos"])
         for c in ctx["casos"]:
-            c.item_texto = servicio.item_perdido(c)
+            c.item_texto = items.get(c.pk)
             c.solicitante_nombre = nombres.get(c.solicitante_id)
         return ctx
 

@@ -13,6 +13,9 @@ class TipoAccion(models.TextChoices):
     ENTREGA_PRESTAMO = "ENTREGA_PRESTAMO", "Entrega de préstamo"
     RENOVACION_PRESTAMO = "RENOVACION_PRESTAMO", "Renovación de préstamo"
     DEVOLUCION_PRESTAMO = "DEVOLUCION_PRESTAMO", "Devolución de préstamo"
+    # Las que registra Reportes: los archivos sacan datos personales del sistema.
+    EXPORTACION_REPORTE = "EXPORTACION_REPORTE", "Exportación de reporte"
+    ELIMINACION_REPORTE = "ELIMINACION_REPORTE", "Eliminación de reporte"
 
 
 # RF-J1: estas acciones sensibles siempre llevan su motivo.

@@ -68,6 +68,10 @@ class ICatalogoServicio(ABC):
     def obtener_item(self, item_id): ...
 
     @abstractmethod
+    def obtener_items(self, ids):
+        """{item_id: ItemDTO} en una sola consulta (lo usa Reportes)."""
+
+    @abstractmethod
     def es_especial(self, item_id=None, categoria_id=None): ...
 
     @abstractmethod
@@ -214,6 +218,12 @@ class CatalogoServicioAplicacion(ICatalogoServicio):
     # Consultas para otros módulos
     def obtener_item(self, item_id):
         return ItemDTO.desde(self.items.buscar_por_id(item_id))
+
+    def obtener_items(self, ids):
+        ids = set(ids)
+        if not ids:
+            return {}
+        return {i.id: ItemDTO.desde(i) for i in self.items.buscar_por_ids(ids)}
 
     def es_especial(self, item_id=None, categoria_id=None):
         """Permite consultar si un artículo requiere autorización de supervisor."""
