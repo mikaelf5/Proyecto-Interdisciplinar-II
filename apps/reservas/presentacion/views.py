@@ -80,7 +80,7 @@ class ReservarView(RolRequeridoMixin, View):
     Pantalla: "Reservar" (botón "Reservar este ítem" del detalle del catálogo).
     GET  → muestra el formulario y la disponibilidad del día.
     POST → botón "Reservar" (servicio.crear) o "Avisarme si se libera" (servicio.anotarse_en_espera).
-    Si el horario choca, se vuelve a mostrar el formulario con horarios libres y otros ítems.
+    Si el horario choca, se vuelve a mostrar el formulario con horarios libres .
     """
     roles_permitidos = [RolSistema.SOLICITANTE]
     template_name = "reservas/reservar.html"

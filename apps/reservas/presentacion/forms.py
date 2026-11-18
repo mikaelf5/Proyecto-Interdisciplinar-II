@@ -9,11 +9,11 @@ class ReservaForm(forms.Form):
     )
     hora_inicio = forms.TimeField(
         label="Desde",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control", "step": 900}, format="%H:%M"),
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control", "step": 60}, format="%H:%M"),
     )
     hora_fin = forms.TimeField(
         label="Hasta",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control", "step": 900}, format="%H:%M"),
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control", "step": 60}, format="%H:%M"),
     )
     finalidad = forms.CharField(
         label="Finalidad (opcional)", required=False, max_length=300,
@@ -22,11 +22,14 @@ class ReservaForm(forms.Form):
     )
 
     def clean(self):
-        datos = super().clean()
-        desde, hasta = datos.get("hora_inicio"), datos.get("hora_fin")
-        if desde and hasta and hasta <= desde:
-            self.add_error("hora_fin", "Debe ser posterior a la hora de inicio.")
-        return datos
+            datos = super().clean()
+            for campo in ("hora_inicio", "hora_fin"):
+                if datos.get(campo):
+                    datos[campo] = datos[campo].replace(second=0, microsecond=0)
+            desde, hasta = datos.get("hora_inicio"), datos.get("hora_fin")
+            if desde and hasta and hasta <= desde:
+                self.add_error("hora_fin", "Debe ser posterior a la hora de inicio.")
+            return datos
 
 
 class MotivoForm(forms.Form):

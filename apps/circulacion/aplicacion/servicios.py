@@ -436,6 +436,11 @@ class PrestamoServicioAplicacion(IPrestamoServicio):
         self.reservas.finalizar_por_perdida(prestamo.reserva_id)
 
         return prestamo
+    def obtener(self, prestamo_id):
+        """Consulta un préstamo por id (solo lectura). None si no existe."""
+        prestamo = self.repositorio.buscar_por_id(prestamo_id)
+        return PrestamoDTO.desde_modelo(prestamo) if prestamo else None
+
     def entregados_hoy(self):
         return self.repositorio.entregados_hoy()
 

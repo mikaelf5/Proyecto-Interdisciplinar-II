@@ -27,6 +27,7 @@ class FilaDanio:
     entidad: str
     entidad_id: UUID
     motivo: str
+    solicitante_id: Optional[UUID] = None   # quién lo devolvió dañado (None si no se sabe)
 
 
 class IFuenteDeReportes(ABC):
@@ -45,3 +46,7 @@ class IFuenteDeReportes(ABC):
     @abstractmethod
     def datos_de_items(self, ids):
         """{item_id: (codigo, nombre, categoria)}"""
+
+    def items_de_prestamos(self, prestamo_ids):
+        """{prestamo_id: item_id} — para decir QUÉ ítem se perdió."""
+        return {}

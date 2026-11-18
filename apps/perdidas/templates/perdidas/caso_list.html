@@ -30,6 +30,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Fecha</th>
+                    <th>Ítem perdido</th>
                     <th>Préstamo</th>
                     <th>Solicitante</th>
                     <th>Costo estimado</th>
@@ -41,8 +42,9 @@
                 {% for c in casos %}
                 <tr>
                     <td>{{ c.fecha|date:"d/m/Y" }}</td>
-                    <td><code>{{ c.prestamo_id }}</code></td>
-                    <td><a href="{% url 'sanciones:historial' c.solicitante_id %}" title="Ver sanciones del solicitante"><code>{{ c.solicitante_id }}</code></a></td>
+                    <td>{% if c.item_texto %}<strong>{{ c.item_texto }}</strong>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    <td><code title="{{ c.prestamo_id }}">{{ c.prestamo_id|stringformat:"s"|slice:":8" }}</code></td>
+                    <td><a href="{% url 'sanciones:historial' c.solicitante_id %}" title="Ver sanciones del solicitante">{% if c.solicitante_nombre %}{{ c.solicitante_nombre }}{% else %}<code>{{ c.solicitante_id }}</code>{% endif %}</a></td>
                     <td>{% if c.costo_estimado is not None %}S/ {{ c.costo_estimado }}{% else %}—{% endif %}</td>
                     <td>
                         {% if c.cerrado %}<span class="badge bg-secondary">Cerrado</span>
@@ -63,7 +65,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No hay casos que coincidan.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay casos que coincidan.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

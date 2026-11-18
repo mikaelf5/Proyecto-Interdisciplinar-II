@@ -156,7 +156,8 @@ def _tasa_devolucion(reporte, prestamos, nombres, items, ahora):
     )
 
 
-def _sanciones_por_periodo(reporte, sanciones):
+def _sanciones_por_periodo(reporte, sanciones, nombres=None):
+    nombres = nombres or {}
     por_tipo = {valor: 0 for valor, _ in TipoSancion.choices}
     vigentes = 0
     filas = []
@@ -166,7 +167,7 @@ def _sanciones_por_periodo(reporte, sanciones):
         vigentes += estado == "vigente"
         filas.append([
             f"{s.fecha_inicio:%d/%m/%Y}",
-            str(s.solicitante_id),
+            nombres.get(s.solicitante_id, _corto(s.solicitante_id)),
             s.get_tipo_display(),
             s.motivo,
             str(s.duracion_dias) if s.duracion_dias else "sin plazo",
@@ -184,29 +185,37 @@ def _sanciones_por_periodo(reporte, sanciones):
     )
 
 
-def _perdidas_por_periodo(reporte, casos, danios=(), nombres=None, items=None):
+def _referencia_item(item_id, items):
+    if item_id in items:
+        codigo, nombre, _ = items[item_id]
+        return f"Ítem {codigo} · {nombre}"
+    return None
+
+
+def _perdidas_por_periodo(reporte, casos, danios=(), nombres=None, items=None, item_de_prestamo=None):
     """Ítems perdidos (Gestión de Pérdidas) y dañados (auditoría ITEM_DANIADO)."""
     nombres = nombres or {}
     items = items or {}
+    item_de_prestamo = item_de_prestamo or {}
     costo_total = sum((c.costo_estimado for c in casos if c.costo_estimado), Decimal("0"))
     filas = []
     for c in casos:
+        referencia = (_referencia_item(item_de_prestamo.get(c.prestamo_id), items)
+                      or f"Préstamo {_corto(c.prestamo_id)}")
         filas.append((c.fecha.strftime("%Y%m%d"), [
-            c.fecha.strftime("%d/%m/%Y"), "Pérdida", f"Préstamo {_corto(c.prestamo_id)}",
+            c.fecha.strftime("%d/%m/%Y"), "Pérdida", referencia,
             nombres.get(c.solicitante_id, _corto(c.solicitante_id)),
             c.observaciones or "—",
             f"S/ {c.costo_estimado:.2f}" if c.costo_estimado is not None else "—",
         ]))
     for d in danios:
         local = timezone.localtime(d.fecha)
-        if d.entidad == "Item" and d.entidad_id in items:
-            codigo, nombre, _ = items[d.entidad_id]
-            referencia = f"Ítem {codigo} · {nombre}"
-        else:
-            referencia = f"{d.entidad} {_corto(d.entidad_id)}"
+        referencia = ((d.entidad == "Item" and _referencia_item(d.entidad_id, items))
+                      or f"{d.entidad} {_corto(d.entidad_id)}")
         filas.append((local.strftime("%Y%m%d"), [
             local.strftime("%d/%m/%Y"), "Daño", referencia,
-            "—", d.motivo or "—", "—",
+            nombres.get(d.solicitante_id, "—") if d.solicitante_id else "—",
+            d.motivo or "—", "—",
         ]))
     filas = [fila for _, fila in sorted(filas, key=lambda x: x[0])]
     resumen = [
@@ -261,16 +270,25 @@ class ReporteServicioAplicacion:
         ahora = ahora or timezone.now()
         inicio, fin = reporte.periodo_inicio, reporte.periodo_fin
         if reporte.tipo == TipoReporte.SANCIONES_POR_PERIODO:
-            return _sanciones_por_periodo(reporte, self._sanciones.por_periodo(inicio, fin))
+            sanciones = self._sanciones.por_periodo(inicio, fin)
+            return _sanciones_por_periodo(
+                reporte, sanciones, self._nombres({s.solicitante_id for s in sanciones})
+            )
         if reporte.tipo == TipoReporte.ITEMS_PERDIDOS_DANIADOS:
             casos = self._casos.por_periodo(inicio, fin)
             danios = self._fuente.danios_del_periodo(inicio, fin) if self._fuente else []
-            items = (
-                self._fuente.datos_de_items({d.entidad_id for d in danios if d.entidad == "Item"})
-                if self._fuente and danios else {}
+            item_de_prestamo = (
+                self._fuente.items_de_prestamos({c.prestamo_id for c in casos})
+                if self._fuente and casos else {}
             )
+            ids_items = {d.entidad_id for d in danios if d.entidad == "Item"} | set(item_de_prestamo.values())
+            items = self._fuente.datos_de_items(ids_items) if self._fuente and ids_items else {}
             return _perdidas_por_periodo(
-                reporte, casos, danios, self._nombres({c.solicitante_id for c in casos}), items
+                reporte, casos, danios,
+                self._nombres({c.solicitante_id for c in casos}
+                              | {d.solicitante_id for d in danios if d.solicitante_id}),
+                items,
+                item_de_prestamo,
             )
         if self._fuente is None:
             raise ReporteNoDisponible(

@@ -55,8 +55,6 @@ class ReglasDeReserva:
             return [f"Ese día no hay atención. Horario: {self.horario.describir()}."]
         if not self.horario.dentro(desde, hasta):
             return [f"La reserva debe estar dentro del horario: {self.horario.describir()}."]
-        if not (self.horario.en_bloque(desde) and self.horario.en_bloque(hasta)):
-            return [f"Elige horas en bloques de {self.horario.bloque_min} minutos (ej. 10:00, 10:15, 10:30)."]
         return []
 
     def _errores_de_duracion(self, desde, hasta):
@@ -137,10 +135,7 @@ class CalculadoraDeHorarios:
         if fecha != ahora.date():
             return apertura
         lo_mas_pronto = minutos_del_dia(ahora.time()) + self.horario.anticipacion_minima_min
-        return max(apertura, self._redondear_al_siguiente_bloque(lo_mas_pronto))
-
-    def _redondear_al_siguiente_bloque(self, minutos):
-        return minutos + (-minutos) % self.horario.bloque_min
+        return max(apertura, lo_mas_pronto)
 
     def _agregar_hueco(self, huecos, desde, hasta):
         """Solo se ofrecen huecos donde cabe la reserva más corta permitida (15 min)."""

@@ -48,11 +48,22 @@ class CasoPerdidaListView(_SoloPersonal, ListView):
         ctx = super().get_context_data(**kwargs)
         params = self.request.GET.copy()
         params.pop("page", None)
+        servicio = caso_perdida_servicio()
         ctx.update(
             querystring=params.urlencode(),
-            abiertos=caso_perdida_servicio().contar_abiertos(),
+            abiertos=servicio.contar_abiertos(),
         )
+        nombres = _nombres_de({c.solicitante_id for c in ctx["casos"]})
+        for c in ctx["casos"]:
+            c.item_texto = servicio.item_perdido(c)
+            c.solicitante_nombre = nombres.get(c.solicitante_id)
         return ctx
+
+
+def _nombres_de(ids):
+    """{cuenta_id: nombres} usando la API pública de Django (no importa Identidad)."""
+    from django.contrib.auth import get_user_model
+    return dict(get_user_model().objects.filter(pk__in=ids).values_list("pk", "nombres"))
 
 
 class CasoPerdidaCreateView(_SoloPersonal, CreateView):

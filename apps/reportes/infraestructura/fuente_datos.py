@@ -7,12 +7,17 @@
 - Nombres: `get_user_model()` (API pública de Django, no se importa Identidad).
 - Ítems: servicio de aplicación de Catálogo.
 """
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 
 from apps.auditoria.fabrica import auditoria_servicio
 from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
 from apps.circulacion.dominio.models import Prestamo
 from apps.reportes.dominio.fuentes import FilaDanio, FilaPrestamo, IFuenteDeReportes
+
+VENTANA_DANIO = timedelta(hours=1)    # el daño se registra al recibir el ítem
+MARGEN_DANIO = timedelta(minutes=1)   # por si la devolución se guarda un instante después
 
 
 class FuenteDeReportesDjango(IFuenteDeReportes):
@@ -34,10 +39,36 @@ class FuenteDeReportesDjango(IFuenteDeReportes):
             "hasta": fin.isoformat(),
         })
         return [
-            FilaDanio(fecha=r.fecha_hora, entidad=r.entidad, entidad_id=r.entidad_id, motivo=r.motivo)
+            FilaDanio(fecha=r.fecha_hora, entidad=r.entidad, entidad_id=r.entidad_id, motivo=r.motivo,
+                      solicitante_id=self._quien_lo_devolvio(r))
             for r in registros
             if r.entidad != "CasoPerdida"   # las pérdidas ya salen de Gestión de Pérdidas
         ]
+
+    @staticmethod
+    def _quien_lo_devolvio(registro):
+        """Si el daño se registró al devolver el ítem, el responsable es quien lo devolvió.
+
+        La auditoría no guarda el préstamo, así que se busca la devolución de ese ítem
+        ocurrida hasta 1 hora antes del registro. Si el daño se marcó a mano desde el
+        catálogo (sin devolución cerca), no se culpa a nadie: devuelve None.
+        """
+        if registro.entidad != "Item":
+            return None
+        prestamo = (
+            Prestamo.objects.filter(
+                item_id=registro.entidad_id,
+                fecha_devolucion_real__lte=registro.fecha_hora + MARGEN_DANIO,
+                fecha_devolucion_real__gte=registro.fecha_hora - VENTANA_DANIO,
+            )
+            .order_by("-fecha_devolucion_real")
+            .first()
+        )
+        return prestamo.solicitante_id if prestamo else None
+
+    def items_de_prestamos(self, prestamo_ids):
+        filas = Prestamo.objects.filter(pk__in=set(prestamo_ids)).values_list("id", "item_id")
+        return dict(filas)
 
     def nombres_de_cuentas(self, ids):
         cuentas = get_user_model().objects.filter(pk__in=set(ids))
