@@ -25,18 +25,27 @@ class CasoPerdidaServicioAplicacion:
     def listar(self, estado="", q=""):
         return self._repo.buscar(estado, q)
 
+    def items_perdidos(self, casos):
+        """{caso_id: "CÓDIGO · Nombre"} del ítem que se perdió en cada caso.
+
+        Dos consultas en total (préstamos e ítems), no dos por caso. Si falta Circulación o
+        Catálogo, o el préstamo/ítem ya no existe, ese caso simplemente no aparece.
+        """
+        casos = list(casos)
+        if self._circulacion is None or self._catalogo is None or not casos:
+            return {}
+        item_de_prestamo = self._circulacion.items_de_prestamos({c.prestamo_id for c in casos})
+        items = self._catalogo.obtener_items(set(item_de_prestamo.values()))
+        textos = {}
+        for c in casos:
+            item = items.get(item_de_prestamo.get(c.prestamo_id))
+            if item is not None:
+                textos[c.pk] = f"{item.codigo} · {item.nombre}"
+        return textos
+
     def item_perdido(self, caso):
-        """Texto "CÓDIGO · Nombre" del ítem que se perdió en el caso, o None si no se puede saber."""
-        if self._circulacion is None or self._catalogo is None:
-            return None
-        try:
-            prestamo = self._circulacion.obtener(caso.prestamo_id)
-            if prestamo is None:
-                return None
-            item = self._catalogo.obtener_item(prestamo.item_id)
-            return f"{item.codigo} · {item.nombre}"
-        except Exception:  # préstamo o ítem borrado: la lista sigue mostrándose
-            return None
+        """Texto "CÓDIGO · Nombre" del ítem perdido en un caso, o None si no se puede saber."""
+        return self.items_perdidos([caso]).get(caso.pk)
 
     def contar_abiertos(self):
         return self._repo.contar_abiertos()

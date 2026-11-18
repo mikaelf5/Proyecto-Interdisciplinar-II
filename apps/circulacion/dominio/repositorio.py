@@ -26,6 +26,18 @@ class IPrestamoRepositorio(ABC):
         ...
 
     @abstractmethod
+    def entregados_entre(self, inicio, fin):
+        """Préstamos ENTREGADOS entre dos fechas (inclusive, en hora local). Lo usa Reportes."""
+
+    @abstractmethod
+    def devueltos_entre(self, item_ids, desde, hasta):
+        """Préstamos de esos ítems DEVUELTOS entre dos momentos. Lo usa Reportes."""
+
+    @abstractmethod
+    def por_ids(self, ids):
+        """Varios préstamos por id, en una consulta."""
+
+    @abstractmethod
     def abiertos(self):
         """Retorna todos los préstamos activos y vencidos."""
         ...

@@ -1,3 +1,4 @@
+from apps.auditoria.fabrica import auditoria_servicio
 from apps.perdidas.fabrica import caso_perdida_servicio
 from apps.sanciones.fabrica import sancion_servicio
 
@@ -14,4 +15,5 @@ def reporte_servicio():
         caso_perdida_servicio(),
         ExportadorExcelPDF(),
         FuenteDeReportesDjango(),
+        auditoria_servicio(),
     )

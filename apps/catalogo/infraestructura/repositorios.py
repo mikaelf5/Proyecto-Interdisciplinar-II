@@ -44,6 +44,9 @@ class ItemRepositorioImpl(IItemRepositorio):
         except (ObjectDoesNotExist, ValidationError, ValueError):
             raise ValidationError("El ítem no existe.")
 
+    def buscar_por_ids(self, ids):
+        return Item.objects.select_related("categoria").filter(pk__in=list(ids))
+
     def buscar_por_codigo(self, codigo):
         return Item.objects.select_related("categoria").filter(codigo=codigo).first()
 

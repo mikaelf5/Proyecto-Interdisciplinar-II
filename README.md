@@ -204,7 +204,7 @@ stateDiagram-v2
 <summary><b>Reglas principales</b></summary>
 <br>
 
-**Horario (igual para todos):** lunes a viernes, de 08:00 a 20:00, en bloques de 15 minutos. Se reserva con al menos 30 minutos de anticipación, entre dos reservas del mismo ítem quedan 15 minutos de margen y hay 15 minutos de tolerancia para recogerlo.
+**Horario (igual para todos):** lunes a viernes, de 08:00 a 20:00 (se puede elegir cualquier minuto). Se reserva con al menos 30 minutos de anticipación, entre dos reservas del mismo ítem quedan 15 minutos de margen y hay 15 minutos de tolerancia para recogerlo.
 
 **Políticas (cambian por categoría y tipo de usuario):**
 

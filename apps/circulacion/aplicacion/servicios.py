@@ -444,6 +444,23 @@ class PrestamoServicioAplicacion(IPrestamoServicio):
     def entregados_hoy(self):
         return self.repositorio.entregados_hoy()
 
+    # Consultas para Reportes (solo lectura)
+    def entregados_entre(self, inicio, fin):
+        return [PrestamoDTO.desde_modelo(p) for p in self.repositorio.entregados_entre(inicio, fin)]
+
+    def devueltos_entre(self, item_ids, desde, hasta):
+        ids = set(item_ids)
+        if not ids:
+            return []
+        return [PrestamoDTO.desde_modelo(p) for p in self.repositorio.devueltos_entre(ids, desde, hasta)]
+
+    def items_de_prestamos(self, prestamo_ids):
+        """{prestamo_id: item_id}"""
+        ids = set(prestamo_ids)
+        if not ids:
+            return {}
+        return {p.id: p.item_id for p in self.repositorio.por_ids(ids)}
+
     def abiertos(self):
         return [
             PrestamoDTO.desde_modelo(p)

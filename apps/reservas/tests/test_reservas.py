@@ -89,12 +89,12 @@ class DominioTests(SimpleTestCase):
         casos = {
             "al menos 30 minutos de anticipación (lo más pronto: 09:30)": (h("09:15"), h("10:00")),
             "al menos 15 minutos": (h("10:00"), h("10:10")),
-            "bloques de 15 minutos": (h("10:04"), h("11:00")),
         }
         for mensaje, (desde, hasta) in casos.items():
             with self.subTest(mensaje), self.assertRaisesMessage(ValidationError, mensaje):
                 reglas.validar(LUNES, desde, hasta, AHORA, politica())
         reglas.validar(LUNES, h("09:30"), h("09:45"), AHORA, politica())   # justo 30 min antes y 15 min: válida
+        reglas.validar(LUNES, h("10:04"), h("11:00"), AHORA, politica())   # ya no hay bloques de 15 min
 
     def test_reglas_horario_duracion_antelacion(self):
         reglas = ReglasDeReserva(HorarioAtencion())
@@ -105,7 +105,6 @@ class DominioTests(SimpleTestCase):
             (LUNES, h("08:00"), h("08:30")),                # ya pasó (son las 9:00)
             (LUNES, h("09:15"), h("10:00")),                # menos de 30 min de anticipación
             (LUNES, h("10:00"), h("10:10")),                # dura menos de 15 min
-            (LUNES, h("10:04"), h("11:00")),                # 10:04 no es bloque de 15 min
             (LUNES, h("10:00"), h("15:00")),                # 5 h > 4 h de la política
             (date(2026, 11, 13), h("10:00"), h("11:00")),   # 11 días > 7 de antelación
         ]

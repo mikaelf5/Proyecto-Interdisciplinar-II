@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import UUID
+from typing import Optional
 
 @dataclass(frozen=True)
 class SolicitudDTO:
@@ -39,6 +40,7 @@ class PrestamoDTO:
     estado: str
     fecha_entrega: datetime
     fecha_vencimiento: datetime
+    fecha_devolucion_real: Optional[datetime] = None
 
     @classmethod
     def desde_modelo(cls, p):
@@ -50,4 +52,5 @@ class PrestamoDTO:
             estado=p.estado,
             fecha_entrega=p.fecha_entrega,
             fecha_vencimiento=p.fecha_vencimiento,
+            fecha_devolucion_real=p.fecha_devolucion_real,
         )

@@ -7,21 +7,30 @@
 #   python manage.py shell -c "exec(open('datos_reportes.py', encoding='utf-8').read())"
 #
 # OJO: borra TODOS los préstamos, sanciones, casos de pérdida y reportes antes de
-# crear los de prueba. Úsalo solo en tu base local.
+# crear los de prueba. Úsalo solo en tu base local: con DEBUG=False se niega a correr.
+#
+# Deja los ítems coherentes con los préstamos: el que está en curso o vencido queda
+# PRESTADO, el perdido queda de BAJA y los demás vuelven a DISPONIBLE.
 import uuid
 from datetime import datetime, time, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.auditoria.dominio.models import RegistroAuditoria
 from apps.catalogo.models import Item
 from apps.circulacion.dominio.models import Prestamo
-from apps.common.choices import EstadoPrestamo
+from apps.common.choices import EstadoItem, EstadoPrestamo, TipoGarantia
 from apps.perdidas.dominio.models import CasoPerdida
 from apps.reportes.dominio.models import Reporte, TipoReporte
 from apps.sanciones.dominio.models import Sancion, TipoSancion
+
+if not settings.DEBUG:
+    raise SystemExit("datos_reportes.py borra datos: solo se usa en local (DEBUG=True).")
+
+MOTIVO_DANIO = "Carcasa rajada, detectada al revisarlo en la devolución"
 
 U = get_user_model()
 admin = U.objects.get(correo="admin@demo.pe")
@@ -30,6 +39,8 @@ ana = U.objects.get(correo="ana@demo.pe")
 diego = U.objects.get(correo="diego@demo.pe")
 # Pedro no se usa: su cuenta aún no está habilitada, así que no puede tener préstamos.
 i = list(Item.objects.order_by("codigo")[:6])
+if len(i) < 6:
+    raise SystemExit("Faltan ítems: corre primero  python manage.py seed_demo")
 COSTO_POR_CATEGORIA = {"Equipos": Decimal("2500.00"), "Libros": Decimal("120.00"),
                        "Indumentaria": Decimal("60.00")}
 
@@ -37,7 +48,8 @@ Prestamo.objects.all().delete()
 Sancion.objects.all().delete()
 CasoPerdida.objects.all().delete()
 Reporte.objects.all().delete()
-RegistroAuditoria.objects.filter(accion="ITEM_DANIADO", motivo__startswith="[prueba]").delete()
+RegistroAuditoria.objects.filter(accion="ITEM_DANIADO", motivo__startswith="[prueba]").delete()  # versión anterior
+RegistroAuditoria.objects.filter(accion="ITEM_DANIADO", motivo=MOTIVO_DANIO).delete()
 RegistroAuditoria.objects.filter(accion="ITEM_DANIADO", motivo="Pantalla rayada al devolver").delete()  # del script anterior
 
 
@@ -64,6 +76,7 @@ def prestamo(item, quien, dias_atras, entrega_h, duracion_h, devuelto_min=None,
         item_id=item.id, solicitante_id=quien.pk, reserva_id=uuid.uuid4(),
         encargado_entrega_id=enc.pk,
         encargado_devolucion_id=enc.pk if devuelto else None,
+        garantia_tipo=TipoGarantia.CARNE_UNIVERSITARIO, garantia_devuelta=devuelto is not None,
         fecha_entrega=entrega, fecha_vencimiento=vence, fecha_devolucion_real=devuelto,
         estado=estado, terminos_aceptados=True,
     )
@@ -83,6 +96,7 @@ prestamo(i[5], diego,  5, 16, 3, None, EstadoPrestamo.VENCIDO)  # no lo devolvi�
 ahora = timezone.localtime()
 Prestamo.objects.create(
     item_id=i[4].id, solicitante_id=ana.pk, reserva_id=uuid.uuid4(), encargado_entrega_id=enc.pk,
+    garantia_tipo=TipoGarantia.CARNE_UNIVERSITARIO,
     fecha_entrega=ahora - timedelta(minutes=30), fecha_vencimiento=ahora + timedelta(hours=2),
     estado=EstadoPrestamo.ACTIVO, terminos_aceptados=True,
 )
@@ -105,11 +119,17 @@ CasoPerdida.objects.create(
 # Daño registrado al recibir el ítem en la devolución (como lo hace Circulación).
 danio = RegistroAuditoria.objects.create(
     actor_id=enc.pk, accion="ITEM_DANIADO", entidad="Item", entidad_id=i[1].id,
-    motivo="[prueba] Carcasa rajada, detectada al revisarlo en la devolución",
+    motivo=MOTIVO_DANIO,
 )
 RegistroAuditoria.objects.filter(pk=danio.pk).update(  # fecha_hora es auto_now_add
     fecha_hora=devuelto_daniado.fecha_devolucion_real + timedelta(minutes=2)
 )
+
+# Estados de los ítems coherentes con los préstamos (si no, el catálogo dejaría reservar
+# un ítem que está prestado o perdido).
+Item.objects.filter(pk__in=[x.id for x in i]).update(estado=EstadoItem.DISPONIBLE, motivo_fuera_servicio="")
+Item.objects.filter(pk__in=[i[4].id, i[5].id]).update(estado=EstadoItem.PRESTADO)
+Item.objects.filter(pk=i[3].id).update(estado=EstadoItem.BAJA, motivo_fuera_servicio="Perdido (caso de pérdida)")
 
 inicio, fin = timezone.localdate() - timedelta(days=30), timezone.localdate()
 for tipo in TipoReporte.values:
