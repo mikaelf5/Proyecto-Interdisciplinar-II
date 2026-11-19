@@ -3,8 +3,8 @@
 
 {% block content %}
 <a href="{% url 'sanciones:lista' %}" class="text-decoration-none">&larr; Volver a sanciones</a>
-<h1 class="h3 my-3">Historial del solicitante</h1>
-<p class="text-muted">ID: <code>{{ solicitante_id }}</code></p>
+<h1 class="h3 my-3">Sanciones de {{ solicitante_nombre|default:"este solicitante" }}</h1>
+<p class="text-muted">{% if solicitante_dni %}DNI {{ solicitante_dni }} · {% endif %}<a href="{% url 'reportes:historial_persona' solicitante_id %}">Ver historial completo (préstamos, sanciones y pérdidas)</a></p>
 
 <div class="row g-3 mb-3">
     <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted small">Total</div><div class="fs-4">{{ total }}</div></div></div>

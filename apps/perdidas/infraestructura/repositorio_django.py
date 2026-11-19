@@ -33,5 +33,11 @@ class CasoPerdidaRepositorioImpl(ICasoPerdidaRepositorio):
     def eliminar(self, caso):
         caso.delete()
 
+    def de_solicitante(self, solicitante_id):
+        return CasoPerdida.objects.filter(solicitante_id=solicitante_id).order_by("-fecha", "-creado_en")
+
+    def de_prestamos(self, prestamo_ids):
+        return CasoPerdida.objects.filter(prestamo_id__in=set(prestamo_ids)).order_by("-fecha", "-creado_en")
+
     def por_periodo(self, inicio, fin):
         return CasoPerdida.objects.filter(fecha__range=(inicio, fin)).order_by("fecha", "creado_en")

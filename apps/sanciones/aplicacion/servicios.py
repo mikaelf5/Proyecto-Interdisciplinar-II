@@ -51,3 +51,7 @@ class SancionServicioAplicacion(ISancionServicio):
 
     def por_periodo(self, inicio, fin):
         return list(self._repo.por_periodo(inicio, fin))
+
+    def de_solicitante(self, cuenta_id):
+        """Todas las sanciones de una cuenta, de la más reciente a la más antigua (lo usa Reportes)."""
+        return list(self._repo.de_solicitante(cuenta_id))

@@ -19,6 +19,9 @@ class PrestamoRepositorioImpl(IPrestamoRepositorio):
         return Prestamo.objects.filter(
             solicitante_id=solicitante_id
         ).order_by("-fecha_entrega")
+
+    def historial_de_item(self, item_id):
+        return Prestamo.objects.filter(item_id=item_id).order_by("-fecha_entrega")
     def vencidos(self):
         return Prestamo.objects.filter(estado__in=[EstadoPrestamo.ACTIVO, EstadoPrestamo.VENCIDO], fecha_vencimiento__lt=timezone.now())
     def buscar_vencidos(self, solicitante_id=None, item_id=None):

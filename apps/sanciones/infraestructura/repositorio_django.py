@@ -10,6 +10,9 @@ class SancionRepositorioImpl(ISancionRepositorio):
     def activas_de(self, solicitante_id):
         return Sancion.objects.filter(solicitante_id=solicitante_id, activa=True)
     
+    def de_solicitante(self, solicitante_id):
+        return Sancion.objects.filter(solicitante_id=solicitante_id).order_by("-fecha_inicio", "-creado_en")
+
     def por_periodo(self, inicio, fin):
         return Sancion.objects.filter(
             fecha_inicio__range=(inicio, fin)

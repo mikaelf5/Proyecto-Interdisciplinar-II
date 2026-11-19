@@ -98,9 +98,10 @@ class VistasSancionTests(TestCase):
 
     def test_crear_sancion_deja_un_solo_registro_de_auditoria(self):
         encargado = crear_cuenta(roles=[RolSistema.ENCARGADO])
+        solicitante = crear_cuenta(roles=[RolSistema.SOLICITANTE])
         self.client.force_login(encargado)
         self.client.post(reverse("sanciones:crear"), dict(
-            solicitante_id=str(uuid.uuid4()), prestamo_id="", tipo="OBSERVACION",
+            solicitante_id=str(solicitante.pk), prestamo_id="", tipo="OBSERVACION",
             motivo="No devolvió el cable", duracion_dias="", fecha_inicio=HOY.isoformat()))
         sancion = Sancion.objects.get()
         self.assertEqual(sancion.aplicada_por_id, encargado.pk)

@@ -43,6 +43,7 @@ class CuentaRepositorioImpl(ICuentaRepositorio):
         if q:
             cuentas = cuentas.filter(
                 Q(nombres__icontains=q) | Q(correo__icontains=q) | Q(dni__icontains=q)
+                | Q(perfil__cui__icontains=q)
             )
         if rol:
             cuentas = cuentas.filter(roles__contains=[rol])

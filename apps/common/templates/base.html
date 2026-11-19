@@ -29,6 +29,9 @@
                         <li class="nav-item"><a class="nav-link" href="{% url 'catalogo:buscar' %}">Catálogo</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'reservas:mias' %}">Mis reservas</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'notificaciones:mias' %}">Notificaciones</a></li>
+                        {% if menu.es_solicitante %}
+                            <li class="nav-item"><a class="nav-link" href="{% url 'reportes:historial_persona' user.pk %}">Mi historial</a></li>
+                        {% endif %}
                         {# --- Encargado y administrador --- #}
                         {% if menu.es_encargado or menu.es_admin %}
                             <li class="nav-item dropdown">
@@ -101,6 +104,9 @@
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{% url 'sanciones:lista' %}">Sanciones</a></li>
                                     <li><a class="dropdown-item" href="{% url 'perdidas:lista' %}">Pérdidas</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'reportes:historial_personas' %}">Historial de personas</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'reportes:historial_items' %}">Historial de ítems</a></li>
                                     {% if menu.es_admin %}<li><a class="dropdown-item" href="{% url 'auditoria:lista' %}">Auditoría</a></li>{% endif %}
                                 </ul>
                             </li>

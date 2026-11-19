@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Historial de una persona{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-1">Historial de una persona</h1>
+<p class="text-muted">Préstamos, sanciones y pérdidas de cualquier cuenta, con sus fechas.</p>
+
+<form method="get" class="row g-2 mb-3" style="max-width: 720px;">
+    <div class="col">
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Nombre, DNI, CUI o correo" autofocus>
+    </div>
+    <div class="col-auto"><button class="btn btn-primary">Buscar</button></div>
+</form>
+
+{% if q %}
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Nombre</th><th>DNI</th><th>CUI</th><th>Tipo</th><th>Roles</th><th></th></tr></thead>
+            <tbody>
+                {% for p in resultados %}
+                <tr>
+                    <td><a href="{% url 'reportes:historial_persona' p.id %}">{{ p.nombres }}</a></td>
+                    <td>{{ p.dni }}</td>
+                    <td>{{ p.cui|default:"—" }}</td>
+                    <td>{{ p.tipo|default:"—" }}</td>
+                    <td class="small">{{ p.roles|join:", " }}</td>
+                    <td class="text-end"><a href="{% url 'reportes:historial_persona' p.id %}" class="btn btn-sm btn-outline-primary">Ver historial</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay personas que coincidan con «{{ q }}».</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<p class="mt-3"><a href="{% url 'reportes:historial_items' %}">Ver el historial de un ítem &rarr;</a></p>
+{% endblock %}

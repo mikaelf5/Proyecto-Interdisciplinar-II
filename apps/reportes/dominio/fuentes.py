@@ -50,3 +50,73 @@ class IFuenteDeReportes(ABC):
     @abstractmethod
     def datos_de_items(self, ids):
         """{item_id: (codigo, nombre, categoria)}"""
+
+
+@dataclass(frozen=True)
+class FichaPersona:
+    id: UUID
+    nombres: str
+    dni: str
+    correo: str
+    roles: tuple
+    tipo: str = ""        # Alumno / Docente / Administrativo (si es solicitante)
+    cui: str = ""
+    etiqueta: str = ""    # Nuevo / Frecuente / Sancionado / Baneado
+
+
+@dataclass(frozen=True)
+class FichaItem:
+    id: UUID
+    codigo: str
+    nombre: str
+    categoria: str
+    estado: str           # texto legible: "Disponible", "Prestado", "Dañado"...
+    motivo_fuera_servicio: str = ""
+
+
+class IFuenteDeHistoriales(IFuenteDeReportes):
+    """Lo que necesitan los historiales de una persona y de un ítem (solo consulta)."""
+
+    @abstractmethod
+    def persona(self, cuenta_id):
+        """FichaPersona o None si la cuenta no existe."""
+
+    @abstractmethod
+    def buscar_personas(self, q):
+        """list[FichaPersona] cuyo nombre, correo, DNI o CUI contiene el texto."""
+
+    @abstractmethod
+    def item(self, item_id):
+        """FichaItem o None si el ítem no existe."""
+
+    @abstractmethod
+    def buscar_items(self, q):
+        """list[FichaItem] cuyo código o atributos contienen el texto."""
+
+    @abstractmethod
+    def prestamos_de_persona(self, cuenta_id):
+        """list[FilaPrestamo], del más reciente al más antiguo."""
+
+    @abstractmethod
+    def prestamos_de_item(self, item_id):
+        """list[FilaPrestamo], del más reciente al más antiguo."""
+
+    @abstractmethod
+    def sanciones_de(self, cuenta_id):
+        """Sanciones de la cuenta, de la más reciente a la más antigua."""
+
+    @abstractmethod
+    def perdidas_de_persona(self, cuenta_id):
+        """Casos de pérdida de la cuenta."""
+
+    @abstractmethod
+    def perdidas_de_prestamos(self, prestamo_ids):
+        """Casos de pérdida de esos préstamos."""
+
+    @abstractmethod
+    def danios_de_item(self, item_id):
+        """list[FilaDanio] registrados para el ítem (con quién lo devolvió, si se sabe)."""
+
+    @abstractmethod
+    def dni_de_cuentas(self, ids):
+        """{cuenta_id: dni}"""

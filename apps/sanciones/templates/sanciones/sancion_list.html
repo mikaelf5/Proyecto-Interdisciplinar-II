@@ -25,7 +25,7 @@
         </select>
     </div>
     <div class="col-md-4">
-        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por solicitante (ID) o motivo">
+        <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por nombre, DNI, CUI o motivo">
     </div>
     <div class="col-md-2 d-flex gap-2">
         <button class="btn btn-outline-secondary">Buscar</button>
@@ -51,7 +51,7 @@
                 {% for s in sanciones %}
                 <tr>
                     <td>{{ s.get_tipo_display }}</td>
-                    <td><a href="{% url 'sanciones:historial' s.solicitante_id %}" title="Ver historial del solicitante"><code>{{ s.solicitante_id }}</code></a></td>
+                    <td><a href="{% url 'sanciones:historial' s.solicitante_id %}" title="Ver historial del solicitante">{% if s.solicitante_nombre %}{{ s.solicitante_nombre }}{% else %}<code>{{ s.solicitante_id }}</code>{% endif %}</a>{% if s.solicitante_dni %}<div class="text-muted small">DNI {{ s.solicitante_dni }}</div>{% endif %}</td>
                     <td>{{ s.motivo|truncatechars:45 }}</td>
                     <td>{{ s.fecha_inicio|date:"d/m/Y" }}</td>
                     <td>{% if s.fin %}{{ s.fin|date:"d/m/Y" }}{% else %}<span class="text-muted">sin plazo</span>{% endif %}</td>

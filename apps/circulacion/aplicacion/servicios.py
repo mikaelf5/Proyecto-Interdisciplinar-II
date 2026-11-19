@@ -413,6 +413,10 @@ class PrestamoServicioAplicacion(IPrestamoServicio):
             PrestamoDTO.desde_modelo(p)
             for p in self.repositorio.historial_de(solicitante_id)
         ]
+    def historial_de_item(self, item_id):
+        """Todos los préstamos de un ítem, del más reciente al más antiguo (lo usa Reportes)."""
+        return [PrestamoDTO.desde_modelo(p) for p in self.repositorio.historial_de_item(item_id)]
+
     def buscar_vencidos(self, solicitante_id=None, item_id=None):
         prestamos = self.repositorio.buscar_vencidos(
             solicitante_id=solicitante_id,

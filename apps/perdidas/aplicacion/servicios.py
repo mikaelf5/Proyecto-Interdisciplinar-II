@@ -56,6 +56,15 @@ class CasoPerdidaServicioAplicacion:
     def por_periodo(self, inicio, fin):
         return list(self._repo.por_periodo(inicio, fin))
 
+    def de_solicitante(self, cuenta_id):
+        """Casos de pérdida de una persona (lo usa Reportes)."""
+        return list(self._repo.de_solicitante(cuenta_id))
+
+    def de_prestamos(self, prestamo_ids):
+        """Casos de pérdida de ciertos préstamos, por ejemplo los de un ítem (lo usa Reportes)."""
+        ids = set(prestamo_ids)
+        return list(self._repo.de_prestamos(ids)) if ids else []
+
     def registrar(self, caso, actor_id):
         """Registra la pérdida, cierra el préstamo y da de baja el ítem.
 

@@ -41,6 +41,19 @@ class Grafico:
 
 
 @dataclass
+class Seccion:
+    """Una tabla con título dentro de un historial (préstamos, sanciones, pérdidas...)."""
+    titulo: str
+    columnas: list
+    filas: list = field(default_factory=list)
+    vacio: str = "Sin registros."
+
+    @property
+    def filas_texto(self):
+        return [[como_texto(v) for v in fila] for fila in self.filas]
+
+
+@dataclass
 class DatosReporte:
     titulo: str
     subtitulo: str
@@ -51,6 +64,7 @@ class DatosReporte:
     total_filas: Optional[int] = None   # filas que habría sin recortar (rankings)
     generado_por: str = ""
     generado_en: Optional[datetime] = None
+    secciones: list = field(default_factory=list)   # historiales: varias tablas con título
 
     @property
     def sello(self):

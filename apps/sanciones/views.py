@@ -13,6 +13,7 @@ from apps.auditoria.models import TipoAccion
 from apps.auditoria.utils import actor_id_de, auditar
 
 from .forms import SancionForm
+from .infraestructura import consultas
 from .models import Sancion, TipoSancion
 from .servicios import ESTADOS, LEVANTADA, VIGENTE, con_estado
 
@@ -25,7 +26,7 @@ class _SoloPersonal(RolRequeridoMixin):
 
 
 class SancionListView(_SoloPersonal, ListView):
-    """Lista con filtros por tipo, estado y búsqueda (solicitante o motivo)."""
+    """Lista con filtros por tipo, estado y búsqueda (nombre, DNI o CUI del solicitante, o motivo)."""
 
     model = Sancion
     template_name = "sanciones/sancion_list.html"
@@ -39,7 +40,7 @@ class SancionListView(_SoloPersonal, ListView):
             qs = qs.filter(tipo=get["tipo"])
         q = get.get("q", "").strip()
         if q:
-            qs = qs.filter(Q(solicitante_id__icontains=q) | Q(motivo__icontains=q))
+            qs = qs.filter(Q(solicitante_id__in=consultas.ids_que_coinciden(q)) | Q(motivo__icontains=q))
         sanciones = con_estado(qs)
         if get.get("estado"):
             sanciones = [s for s in sanciones if s.estado == get["estado"]]
@@ -55,6 +56,7 @@ class SancionListView(_SoloPersonal, ListView):
             estados=ESTADOS,
             total=len(self.object_list),
         )
+        _con_nombres(ctx["sanciones"])
         return ctx
 
 
@@ -71,8 +73,12 @@ class SancionHistorialView(_SoloPersonal, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         sanciones = ctx["sanciones"]
+        solicitante_id = self.kwargs["solicitante_id"]
+        nombre, dni = consultas.personas({solicitante_id}).get(solicitante_id, ("", ""))
         ctx.update(
-            solicitante_id=self.kwargs["solicitante_id"],
+            solicitante_id=solicitante_id,
+            solicitante_nombre=nombre,
+            solicitante_dni=dni,
             total=len(sanciones),
             vigentes=sum(1 for s in sanciones if s.estado == VIGENTE),
         )
@@ -159,9 +165,17 @@ class SancionDeleteView(_SoloPersonal, DeleteView):
 
     def form_valid(self, form):
         s = self.object
-        pk, descripcion = s.pk, f"{s.get_tipo_display()} de {s.solicitante_id}"
+        nombre = consultas.personas({s.solicitante_id}).get(s.solicitante_id, (str(s.solicitante_id),))[0]
+        pk, descripcion = s.pk, f"{s.get_tipo_display()} de {nombre}"
         response = super().form_valid(form)
         auditar(self.request, TipoAccion.SANCION, "Sancion", pk,
                 f"Sanción eliminada: {descripcion}")
         messages.success(self.request, "Sanción eliminada.")
         return response
+
+
+def _con_nombres(sanciones):
+    """Agrega .solicitante_nombre y .solicitante_dni (solo en memoria) para mostrarlos en la lista."""
+    datos = consultas.personas({s.solicitante_id for s in sanciones})
+    for s in sanciones:
+        s.solicitante_nombre, s.solicitante_dni = datos.get(s.solicitante_id, ("", ""))

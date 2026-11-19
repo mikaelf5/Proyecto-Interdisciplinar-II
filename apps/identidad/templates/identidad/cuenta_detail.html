@@ -7,6 +7,7 @@
     <h1 class="h3 mb-0">{{ cuenta.nombres }}</h1>
     {% if cuenta.is_active %}<span class="badge badge-activa">Activa</span>{% else %}<span class="badge badge-inactiva">Inactiva</span>{% endif %}
     {% if perfil %}{% include "identidad/_etiqueta.html" with etiqueta=perfil.etiqueta texto=perfil.get_etiqueta_display %}{% endif %}
+    <a href="{% url 'reportes:historial_persona' cuenta.pk %}" class="btn btn-sm btn-outline-secondary ms-auto">Ver historial</a>
 </div>
 
 <div class="row g-4">

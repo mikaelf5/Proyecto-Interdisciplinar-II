@@ -4,7 +4,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Reportes</h1>
-    <a href="{% url 'reportes:crear' %}" class="btn btn-primary">+ Generar reporte</a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'reportes:historial_personas' %}" class="btn btn-outline-secondary">Historial de una persona</a>
+        <a href="{% url 'reportes:historial_items' %}" class="btn btn-outline-secondary">Historial de un ítem</a>
+        <a href="{% url 'reportes:crear' %}" class="btn btn-primary">+ Generar reporte</a>
+    </div>
 </div>
 
 <div class="card">

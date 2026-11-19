@@ -18,6 +18,13 @@ class ReporteForm(forms.ModelForm):
             "periodo_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Django muestra "- Select an option -" sin traducir: se pone el texto en español.
+        self.fields["tipo"].choices = [("", "— Elige el tipo de reporte —")] + [
+            c for c in self.fields["tipo"].choices if c[0]
+        ]
+
     def clean(self):
         datos = super().clean()
         inicio, fin = datos.get("periodo_inicio"), datos.get("periodo_fin")

@@ -1,0 +1,37 @@
+{# Gráfico de un reporte o historial. Uso: {% include "reportes/_grafico.html" %} con `grafico` en el contexto. #}
+    {% if grafico %}
+    <div class="card p-3 mb-3">
+        <h2 class="h6 mb-3">{{ grafico.titulo }}</h2>
+        <div style="position: relative; height: {% if grafico.tipo == 'doughnut' %}260px{% else %}320px{% endif %};">
+            <canvas id="grafico-reporte" aria-label="{{ grafico.titulo }}" role="img"></canvas>
+        </div>
+    </div>
+    {{ grafico|json_script:"datos-grafico" }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        if (typeof Chart === "undefined") return;   // sin internet: la tabla sigue mostrando todo
+        const g = JSON.parse(document.getElementById("datos-grafico").textContent);
+        const colores = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#64748b"];
+        const esDona = g.tipo === "doughnut";
+        new Chart(document.getElementById("grafico-reporte"), {
+            type: esDona ? "doughnut" : "bar",
+            data: {
+                labels: g.etiquetas,
+                datasets: [{
+                    label: g.titulo,
+                    data: g.valores,
+                    backgroundColor: esDona ? colores : colores[0],
+                    borderWidth: esDona ? 2 : 0,
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                indexAxis: esDona ? undefined : "y",
+                plugins: { legend: { display: esDona, position: "right" } },
+                scales: esDona ? {} : { x: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+    })();
+    </script>
+    {% endif %}

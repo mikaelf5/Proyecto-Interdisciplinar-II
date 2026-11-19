@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ datos.titulo }}{% endblock %}
+
+{% block content %}
+{% if ve_todo %}
+    {% if tipo == "persona" %}
+        <a href="{% url 'reportes:historial_personas' %}" class="text-decoration-none">&larr; Buscar otra persona</a>
+    {% else %}
+        <a href="{% url 'reportes:historial_items' %}" class="text-decoration-none">&larr; Buscar otro ítem</a>
+    {% endif %}
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-start my-3 gap-3 flex-wrap">
+    <div>
+        <h1 class="h3 mb-1">{% if tipo == "persona" and es_propio %}Mi historial{% else %}{{ datos.titulo }}{% endif %}</h1>
+        <p class="text-muted mb-0">{{ datos.subtitulo }}</p>
+        <p class="text-muted small mb-0">Datos calculados al {{ datos.generado_en|date:"d/m/Y H:i" }}</p>
+    </div>
+    <div class="text-nowrap">
+        {% if tipo == "persona" %}
+            <a href="{% url 'reportes:exportar_historial_persona' objeto_id 'excel' %}" class="btn btn-outline-success">Descargar Excel</a>
+            <a href="{% url 'reportes:exportar_historial_persona' objeto_id 'pdf' %}" class="btn btn-outline-danger">Descargar PDF</a>
+        {% else %}
+            <a href="{% url 'reportes:exportar_historial_item' objeto_id 'excel' %}" class="btn btn-outline-success">Descargar Excel</a>
+            <a href="{% url 'reportes:exportar_historial_item' objeto_id 'pdf' %}" class="btn btn-outline-danger">Descargar PDF</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for etiqueta, valor in datos.resumen_texto %}
+    <div class="col-6 col-md-3 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="text-muted small">{{ etiqueta }}</div>
+            <div class="fs-5">{{ valor }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% include "reportes/_grafico.html" %}
+
+{% for seccion in datos.secciones %}
+<div class="card mb-3">
+    <div class="card-header bg-white"><h2 class="h6 mb-0">{{ seccion.titulo }} <span class="text-muted">({{ seccion.filas|length }})</span></h2></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>{% for c in seccion.columnas %}<th>{{ c }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+                {% for fila in seccion.filas_texto %}
+                <tr>{% for valor in fila %}<td>{{ valor }}</td>{% endfor %}</tr>
+                {% empty %}
+                <tr><td colspan="{{ seccion.columnas|length }}" class="text-center text-muted py-3">{{ seccion.vacio }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+{% if tipo == "persona" and ve_todo %}
+<p><a href="{% url 'sanciones:crear' %}?solicitante_id={{ objeto_id }}" class="btn btn-sm btn-outline-warning">+ Aplicar una sanción a esta persona</a></p>
+{% endif %}
+<p class="text-muted small mt-2">Los datos se calculan al abrir el historial, con la información actual. Contiene datos personales (Ley N.° 29733): uso interno.</p>
+{% endblock %}

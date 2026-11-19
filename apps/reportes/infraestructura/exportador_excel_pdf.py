@@ -66,6 +66,22 @@ def _celda_excel(celda, valor):
     return celda
 
 
+def _tabla_excel(ws, fila, columnas, filas):
+    """Escribe cabecera y filas desde `fila`; devuelve la última fila usada."""
+    cabecera = PatternFill("solid", fgColor="343A40")
+    for col, nombre in enumerate(columnas, start=1):
+        celda = ws.cell(row=fila, column=col, value=nombre)
+        celda.font = Font(bold=True, color="FFFFFF")
+        celda.fill = cabecera
+    for datos_fila in filas:
+        fila += 1
+        for col, valor in enumerate(datos_fila, start=1):
+            _celda_excel(ws.cell(row=fila, column=col), valor).alignment = Alignment(
+                wrap_text=True, vertical="top"
+            )
+    return fila
+
+
 def a_excel(datos):
     wb = Workbook()
     ws = wb.active
@@ -81,21 +97,22 @@ def a_excel(datos):
         _celda_excel(ws.cell(row=fila, column=2), valor).alignment = Alignment(horizontal="right")
         fila += 1
     fila += 1
-    cabecera = PatternFill("solid", fgColor="343A40")
-    for col, nombre in enumerate(datos.columnas, start=1):
-        celda = ws.cell(row=fila, column=col, value=nombre)
-        celda.font = Font(bold=True, color="FFFFFF")
-        celda.fill = cabecera
-    ws.freeze_panes = ws.cell(row=fila + 1, column=1)   # la cabecera queda fija al bajar
-    for datos_fila in datos.filas:
-        fila += 1
-        for col, valor in enumerate(datos_fila, start=1):
-            _celda_excel(ws.cell(row=fila, column=col), valor).alignment = Alignment(
-                wrap_text=True, vertical="top"
-            )
-    fila += 2
+    if datos.secciones:
+        # Historiales: una tabla con título por sección (préstamos, sanciones, pérdidas...).
+        for seccion in datos.secciones:
+            ws.cell(row=fila, column=1, value=seccion.titulo).font = Font(bold=True, size=12)
+            fila = _tabla_excel(ws, fila + 1, seccion.columnas, seccion.filas)
+            if not seccion.filas:
+                fila += 1
+                ws.cell(row=fila, column=1, value=seccion.vacio).font = Font(italic=True, color="666666")
+            fila += 2
+        anchas = max(len(s.columnas) for s in datos.secciones)
+    else:
+        ws.freeze_panes = ws.cell(row=fila + 1, column=1)   # la cabecera queda fija al bajar
+        fila = _tabla_excel(ws, fila, datos.columnas, datos.filas) + 2
+        anchas = len(datos.columnas)
     ws.cell(row=fila, column=1, value=AVISO_DATOS_PERSONALES).font = Font(italic=True, color="666666")
-    for col in range(1, max(len(datos.columnas), 2) + 1):
+    for col in range(1, max(anchas, 2) + 1):
         ws.column_dimensions[get_column_letter(col)].width = 38 if col in (2, 3, 4) else 22
     salida = BytesIO()
     wb.save(salida)
@@ -159,6 +176,20 @@ def _grafico_pdf(grafico, ancho):
     return dibujo
 
 
+def _tabla_pdf(columnas, filas, celda, cabecera, ancho_util):
+    datos_tabla = [[_p(c, cabecera) for c in columnas]]
+    datos_tabla += [[_p(v, celda) for v in f] for f in filas]
+    ancho = ancho_util / len(columnas)
+    tabla = Table(datos_tabla, colWidths=[ancho] * len(columnas), repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#343a40")),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f4f6")]),
+    ]))
+    return tabla
+
+
 def a_pdf(datos):
     estilos = getSampleStyleSheet()
     celda = ParagraphStyle("celda", parent=estilos["BodyText"], fontSize=7.5, leading=9)
@@ -197,18 +228,18 @@ def a_pdf(datos):
     if dibujo is not None:
         elementos += [dibujo, Spacer(1, 0.6 * cm)]
 
-    if datos.filas:
-        filas = [[_p(c, cabecera) for c in datos.columnas]]
-        filas += [[_p(v, celda) for v in f] for f in datos.filas]
-        ancho = (pagina[0] - 3 * cm) / len(datos.columnas)
-        tabla = Table(filas, colWidths=[ancho] * len(datos.columnas), repeatRows=1)
-        tabla.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#343a40")),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f4f6")]),
-        ]))
-        elementos.append(tabla)
+    ancho_util = pagina[0] - 3 * cm
+    if datos.secciones:
+        # Historiales: una tabla con título por sección.
+        for seccion in datos.secciones:
+            elementos.append(_p(seccion.titulo, estilos["Heading3"]))
+            if seccion.filas:
+                elementos.append(_tabla_pdf(seccion.columnas, seccion.filas, celda, cabecera, ancho_util))
+            else:
+                elementos.append(_p(seccion.vacio, estilos["Normal"]))
+            elementos.append(Spacer(1, 0.5 * cm))
+    elif datos.filas:
+        elementos.append(_tabla_pdf(datos.columnas, datos.filas, celda, cabecera, ancho_util))
     else:
         elementos.append(Paragraph("No hay registros en este periodo.", estilos["Normal"]))
     doc.build(elementos, onFirstPage=pie, onLaterPages=pie)

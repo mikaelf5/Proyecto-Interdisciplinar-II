@@ -19,6 +19,9 @@
                     {% if puede_editar %}
                         <div><a href="{% url 'catalogo:editar' item.id %}" class="btn btn-outline-primary btn-sm mt-2">Editar</a></div>
                     {% endif %}
+                    {% if puede_gestionar %}
+                        <div><a href="{% url 'reportes:historial_item' item.id %}" class="btn btn-outline-secondary btn-sm mt-2">Historial de préstamos</a></div>
+                    {% endif %}
                 </div>
             </div>
 

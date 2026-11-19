@@ -4,11 +4,16 @@
 {% block content %}
 <h1 class="h3 mb-3">{% if object %}Editar sanción{% else %}Nueva sanción{% endif %}</h1>
 
-<div class="card p-4" style="max-width: 640px;">
+<div class="card p-4" style="max-width: 680px;">
     <form method="post" novalidate>
         {% csrf_token %}
         {{ form.non_field_errors }}
 
+        <div class="mb-2">
+            <label class="form-label" for="buscar-solicitante">Buscar solicitante</label>
+            <input type="search" id="buscar-solicitante" class="form-control"
+                   placeholder="Nombre, DNI o CUI" autocomplete="off">
+        </div>
         {% include "includes/campo.html" with campo=form.solicitante_id etiqueta="Solicitante" %}
         {% include "includes/campo.html" with campo=form.prestamo_id etiqueta="Préstamo relacionado" %}
         {% include "includes/campo.html" with campo=form.tipo etiqueta="Tipo de sanción" %}
@@ -22,4 +27,41 @@
         <a href="{% url 'sanciones:lista' %}" class="btn btn-link">Cancelar</a>
     </form>
 </div>
+
+<script>
+(function () {
+    const buscador = document.getElementById("buscar-solicitante");
+    const persona = document.getElementById("{{ form.solicitante_id.id_for_label }}");
+    const prestamo = document.getElementById("{{ form.prestamo_id.id_for_label }}");
+    const normalizar = (t) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+    // Filtra la lista de solicitantes mientras se escribe (sin recargar la página).
+    buscador.addEventListener("input", () => {
+        const texto = normalizar(buscador.value.trim());
+        let primera = null;
+        for (const opcion of persona.options) {
+            if (!opcion.value) continue;
+            const coincide = normalizar(opcion.text).includes(texto);
+            opcion.hidden = !coincide;
+            if (coincide && !primera) primera = opcion;
+        }
+        const actual = persona.selectedOptions[0];
+        if (texto && primera && (!actual || !actual.value || actual.hidden)) {
+            persona.value = primera.value;
+            persona.dispatchEvent(new Event("change"));
+        }
+    });
+
+    // Solo se ofrecen los préstamos del solicitante elegido.
+    function filtrarPrestamos() {
+        for (const opcion of prestamo.options) {
+            if (!opcion.value) continue;
+            opcion.hidden = opcion.dataset.solicitante !== persona.value;
+        }
+        if (prestamo.selectedOptions[0]?.hidden) prestamo.value = "";
+    }
+    persona.addEventListener("change", filtrarPrestamos);
+    filtrarPrestamos();
+})();
+</script>
 {% endblock %}

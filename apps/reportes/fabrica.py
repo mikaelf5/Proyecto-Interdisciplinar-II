@@ -17,3 +17,10 @@ def reporte_servicio():
         FuenteDeReportesDjango(),
         auditoria_servicio(),
     )
+
+
+def historial_servicio():
+    from .aplicacion.historiales import HistorialServicio
+    from .infraestructura.fuente_historiales import FuenteDeHistorialesDjango
+
+    return HistorialServicio(FuenteDeHistorialesDjango(), ExportadorExcelPDF(), auditoria_servicio())
