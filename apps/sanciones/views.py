@@ -91,6 +91,11 @@ class SancionCreateView(_SoloPersonal, CreateView):
     template_name = "sanciones/sancion_form.html"
     success_url = reverse_lazy("sanciones:lista")
 
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "actor_id": actor_id_de(self.request)}
+
+    
+
     def get_initial(self):
         """Permite abrir el formulario ya rellenado (ej. desde un caso de pérdida)."""
         initial = super().get_initial()
@@ -119,6 +124,9 @@ class SancionUpdateView(_SoloPersonal, UpdateView):
     form_class = SancionForm
     template_name = "sanciones/sancion_form.html"
     success_url = reverse_lazy("sanciones:lista")
+
+    def get_form_kwargs(self):
+            return {**super().get_form_kwargs(), "actor_id": actor_id_de(self.request)}
 
     def form_valid(self, form):
         response = super().form_valid(form)

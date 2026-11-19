@@ -59,6 +59,7 @@ class FichaPersona:
     dni: str
     correo: str
     roles: tuple
+    es_solicitante: bool = False
     tipo: str = ""        # Alumno / Docente / Administrativo (si es solicitante)
     cui: str = ""
     etiqueta: str = ""    # Nuevo / Frecuente / Sancionado / Baneado

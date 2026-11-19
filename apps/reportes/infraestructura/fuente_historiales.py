@@ -65,6 +65,7 @@ class FuenteDeHistorialesDjango(FuenteDeReportesDjango, IFuenteDeHistoriales):
         return FichaPersona(
             id=cuenta.pk, nombres=cuenta.nombres, dni=cuenta.dni, correo=cuenta.correo,
             roles=tuple(ROLES.get(r, r) for r in cuenta.roles),
+            es_solicitante=RolSistema.SOLICITANTE in cuenta.roles,
             tipo=perfil.get_tipo_display() if perfil else "",
             cui=(perfil.cui or "") if perfil else "",
             etiqueta=perfil.get_etiqueta_display() if perfil and perfil.etiqueta else "",
@@ -78,7 +79,7 @@ class FuenteDeHistorialesDjango(FuenteDeReportesDjango, IFuenteDeHistoriales):
         return self._ficha(cuenta)
 
     def buscar_personas(self, q):
-        return [self._ficha(c) for c in self._cuentas.listar_cuentas(q)]
+         return [self._ficha(c) for c in self._cuentas.listar_cuentas(q, rol=RolSistema.SOLICITANTE)]
 
     def dni_de_cuentas(self, ids):
         from django.contrib.auth import get_user_model   # API pública de Django

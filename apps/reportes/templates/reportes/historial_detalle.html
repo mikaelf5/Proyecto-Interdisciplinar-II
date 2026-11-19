@@ -60,8 +60,6 @@
 </div>
 {% endfor %}
 
-{% if tipo == "persona" and ve_todo %}
-<p><a href="{% url 'sanciones:crear' %}?solicitante_id={{ objeto_id }}" class="btn btn-sm btn-outline-warning">+ Aplicar una sanción a esta persona</a></p>
-{% endif %}
+
 <p class="text-muted small mt-2">Los datos se calculan al abrir el historial, con la información actual. Contiene datos personales (Ley N.° 29733): uso interno.</p>
 {% endblock %}

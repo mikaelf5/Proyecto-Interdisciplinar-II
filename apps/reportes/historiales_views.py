@@ -53,6 +53,8 @@ class BuscarPersonaView(LoginRequiredMixin, TemplateView):
 
     def get(self, request, *args, **kwargs):
         if not ve_todos_los_historiales(request.user):
+            if not request.user.tiene_rol(RolSistema.SOLICITANTE):
+                raise PermissionDenied   # ej. supervisor: no ve otros y no tiene historial propio
             return redirect("reportes:historial_persona", request.user.pk)
         return super().get(request, *args, **kwargs)
 

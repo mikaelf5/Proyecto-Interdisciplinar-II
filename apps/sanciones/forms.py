@@ -65,9 +65,10 @@ class SancionForm(forms.ModelForm):
             "duracion_dias": "Obligatorio para suspensión temporal; vacío = sin plazo.",
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, actor_id=None, **kwargs):
         super().__init__(*args, **kwargs)
-        cuentas = consultas.solicitantes()
+        self._actor_id = actor_id   # quien aplica la sanción: no puede sancionarse a sí mismo
+        cuentas = [c for c in consultas.solicitantes() if c.pk != actor_id]
         self._solicitantes = {str(c.pk) for c in cuentas}
         opciones = [(str(c.pk), consultas.etiqueta_persona(c)) for c in cuentas]
 
@@ -106,6 +107,8 @@ class SancionForm(forms.ModelForm):
         es_la_misma = self.instance.pk and solicitante == self.instance.solicitante_id
         if solicitante and str(solicitante) not in self._solicitantes and not es_la_misma:
             self.add_error("solicitante_id", "Solo se puede sancionar a cuentas con rol Solicitante.")
+        if solicitante and self._actor_id and solicitante == self._actor_id:
+            self.add_error("solicitante_id", "No puedes sancionarte a ti mismo.")
         prestamo = datos.get("prestamo_id")
         if prestamo and solicitante and self._duenos.get(str(prestamo)) != str(solicitante):
             self.add_error("prestamo_id", "Ese préstamo no es del solicitante elegido.")

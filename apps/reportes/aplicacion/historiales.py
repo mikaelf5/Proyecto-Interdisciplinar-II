@@ -72,8 +72,9 @@ class HistorialServicio:
     def de_persona(self, cuenta_id, ahora=None, pedido_por_id=None):
         ahora = ahora or timezone.now()
         persona = self._fuente.persona(cuenta_id)
-        if persona is None:
-            raise HistorialNoEncontrado("La persona no existe.")
+        if persona is None or not persona.es_solicitante:
+            # El historial es de quien pide prestado: el personal (admin, encargado...) no tiene.
+            raise HistorialNoEncontrado("Solo hay historial de cuentas con rol Solicitante.")
 
         prestamos = self._fuente.prestamos_de_persona(cuenta_id)
         sanciones = self._fuente.sanciones_de(cuenta_id)
