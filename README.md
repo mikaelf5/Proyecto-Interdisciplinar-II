@@ -249,6 +249,7 @@ Crea la base de datos `prestamos` en pgAdmin (o con `CREATE DATABASE prestamos;`
 # 5. Tablas y datos de demostración
 python manage.py migrate
 python manage.py seed_demo
+python manage.py seed_unsa        # usuarios del curso: los mismos datos para todo el equipo
 
 # 6. ¡Listo!
 python manage.py runserver
@@ -268,6 +269,90 @@ Abre **http://127.0.0.1:8000** e ingresa con una de estas cuentas (contraseña *
 > [!NOTE]
 > En desarrollo los correos no se envían: aparecen en la consola donde corre `runserver`.
 
+### 👥 Datos compartidos del curso (`seed_unsa`)
+
+Para que **todos tengamos los mismos datos** en la base local, el comando `seed_unsa` carga a las personas reales del curso con datos personales **ficticios pero fijos** (están escritos en [`apps/identidad/management/commands/seed_unsa.py`](apps/identidad/management/commands/seed_unsa.py), no se generan al azar).
+
+```bash
+python manage.py seed_unsa
+```
+
+| | Cantidad | Tipo | Roles |
+|:--|:-:|:--|:--|
+| Alumnos | 48 | Alumno (con CUI) | Solicitante |
+| Docentes | 5 | Docente | Solicitante · la docente del curso también es **Supervisor** |
+| Administrativos | 2 | Administrativo | Solicitante + **Administrador** (Raquel Argüelles) o **Encargado** (Juan Carlos Gutiérrez) |
+
+- **Contraseña de todos:** `unsa2026`
+- **Correo:** primera letra del primer nombre + apellido paterno + primera letra del apellido materno, en minúsculas, sin tildes ni espacios. Ej.: *Natalie Marleny Lazo Paxi* → `nlazop@unsa.edu.pe`
+- **DNI, CUI, celular y dirección son inventados.** Todos los perfiles quedan habilitados y con el acta firmada.
+- Se puede correr las veces que quieras: si alguien cambió algo, lo deja otra vez como está en el archivo. No toca las cuentas `@demo.pe`.
+- Para agregar o cambiar a alguien, se edita el archivo, se sube al repo y **todos** vuelven a correr `python manage.py seed_unsa`.
+
+<details>
+<summary><b>Ver las 55 cuentas</b></summary>
+<br>
+
+| # | Nombre | Correo | Tipo | Roles | CUI | DNI |
+|:-:|:--|:--|:--|:--|:-:|:-:|
+| 1 | Jesus Alberto Alfaro Buiza | `jalfarob@unsa.edu.pe` | Alumno | Solicitante | 20238233 | 71999250 |
+| 2 | Marco Antonio Armendariz Paredes | `marmendarizp@unsa.edu.pe` | Alumno | Solicitante | 20236891 | 76213386 |
+| 3 | Albert Gussepe Blanco Cana | `ablancoc@unsa.edu.pe` | Alumno | Solicitante | 20220041 | 74700173 |
+| 4 | Karina Paola Calcina Chuquipalla | `kcalcinac@unsa.edu.pe` | Alumno | Solicitante | 20217367 | 77851490 |
+| 5 | Diego Canqui Ecos | `dcanquie@unsa.edu.pe` | Alumno | Solicitante | 20234120 | 72763492 |
+| 6 | Anderson Samuel Carpio Chura | `acarpioc@unsa.edu.pe` | Alumno | Solicitante | 20231250 | 77257649 |
+| 7 | Moises Robert Ccaso Idme | `mccasoi@unsa.edu.pe` | Alumno | Solicitante | 20234712 | 75513614 |
+| 8 | Elyud Edgar Chayña Calcina | `echaynac@unsa.edu.pe` | Alumno | Solicitante | 20249460 | 76905374 |
+| 9 | Luis Antonio Chipana Chura | `lchipanac@unsa.edu.pe` | Alumno | Solicitante | 20237554 | 74094092 |
+| 10 | Aldair Daniel Condori Ataucuri | `acondoria@unsa.edu.pe` | Alumno | Solicitante | 20231907 | 75651055 |
+| 11 | Emilio Alejandro Condori Pallardel | `econdorip@unsa.edu.pe` | Alumno | Solicitante | 20239240 | 73169658 |
+| 12 | Stephano Gian Pierre Delgado Chavez | `sdelgadoc@unsa.edu.pe` | Alumno | Solicitante | 20220800 | 77424216 |
+| 13 | Mauricio Alejandro Farfan Huayta | `mfarfanh@unsa.edu.pe` | Alumno | Solicitante | 20232333 | 74602148 |
+| 14 | Fernando Antonio Gama Llicahua | `fgamal@unsa.edu.pe` | Alumno | Solicitante | 20247484 | 76256893 |
+| 15 | Carlos Enrique Gutierrez Castilla | `cgutierrezc@unsa.edu.pe` | Alumno | Solicitante | 20236587 | 73105594 |
+| 16 | Johan Diego Huamani Sabina | `jhuamanis@unsa.edu.pe` | Alumno | Solicitante | 20247846 | 75210239 |
+| 17 | Estrella de Jesús Emilia Fabiana Huarsaya Márquez | `ehuarsayam@unsa.edu.pe` | Alumno | Solicitante | 20230151 | 77977996 |
+| 18 | Lizzy Arlette Huayhua Perez | `lhuayhuap@unsa.edu.pe` | Alumno | Solicitante | 20238020 | 74843890 |
+| 19 | Roid Niro Huaylla Guzman | `rhuayllag@unsa.edu.pe` | Alumno | Solicitante | 20238376 | 75073249 |
+| 20 | Daysi Jara Arisaca | `djaraa@unsa.edu.pe` | Alumno | Solicitante | 20214752 | 78610700 |
+| 21 | Hellen Grace Juan de Dios Delgado | `hjuandediosd@unsa.edu.pe` | Alumno | Solicitante | 20248440 | 74677993 |
+| 22 | Natalie Marleny Lazo Paxi | `nlazop@unsa.edu.pe` | Alumno | Solicitante | 20247850 | 78066897 |
+| 23 | Fernando Enrique Llosa Manchego | `fllosam@unsa.edu.pe` | Alumno | Solicitante | 20226738 | 71810864 |
+| 24 | Mariana Valery Luis Jimenez | `mluisj@unsa.edu.pe` | Alumno | Solicitante | 20239513 | 71001794 |
+| 25 | Diego de Alessandro Mamani Salazar | `dmamanis@unsa.edu.pe` | Alumno | Solicitante | 20210731 | 73079012 |
+| 26 | Luis Fernando Morales Tacca | `lmoralest@unsa.edu.pe` | Alumno | Solicitante | 20220084 | 73996835 |
+| 27 | Neill Elverth Olazabal Chavez | `nolazabalc@unsa.edu.pe` | Alumno | Solicitante | 20228942 | 78864433 |
+| 28 | Alvaro Johan Panibra Choctaya | `apanibrac@unsa.edu.pe` | Alumno | Solicitante | 20248269 | 76017531 |
+| 29 | Javier Alonzo Peñalva Humire | `jpenalvah@unsa.edu.pe` | Alumno | Solicitante | 20229601 | 72343196 |
+| 30 | Jesus Gustavo Perez Villasante | `jperezv@unsa.edu.pe` | Alumno | Solicitante | 20226160 | 75362335 |
+| 31 | Juan Carlos Postigo Cabana | `jpostigoc@unsa.edu.pe` | Alumno | Solicitante | 20235790 | 71430967 |
+| 32 | Claudia Roxana Quisocala Cruz | `cquisocalac@unsa.edu.pe` | Alumno | Solicitante | 20244975 | 73749450 |
+| 33 | Sharmely Yesenia Quispe Chavez | `squispec@unsa.edu.pe` | Alumno | Solicitante | 20239365 | 78958961 |
+| 34 | David Augusto Quispe Lloccallasi | `dquispel@unsa.edu.pe` | Alumno | Solicitante | 20227104 | 75358835 |
+| 35 | Angelo Josue Quispe Suarez | `aquispes@unsa.edu.pe` | Alumno | Solicitante | 20241138 | 72957284 |
+| 36 | Job Lorenzo Quispe Torrez | `jquispet@unsa.edu.pe` | Alumno | Solicitante | 20220741 | 76429362 |
+| 37 | Luis Enrique Ramos Chambi | `lramosc@unsa.edu.pe` | Alumno | Solicitante | 20230335 | 72581498 |
+| 38 | Rodrigo Abraham Ramos Mamani | `rramosm@unsa.edu.pe` | Alumno | Solicitante | 20222627 | 78504580 |
+| 39 | Omar Joaquin Rivera Olivera | `oriverao@unsa.edu.pe` | Alumno | Solicitante | 20236784 | 74568130 |
+| 40 | Edu Andre Sucari Ccansaya | `esucaric@unsa.edu.pe` | Alumno | Solicitante | 20224316 | 73886234 |
+| 41 | Cristhian Luis Taipe Huanca | `ctaipeh@unsa.edu.pe` | Alumno | Solicitante | 20232899 | 73413153 |
+| 42 | Lizeth Angelica Tito Vilca | `ltitov@unsa.edu.pe` | Alumno | Solicitante | 20234486 | 75422909 |
+| 43 | Jhair Alejandro Torres Chavez | `jtorresc@unsa.edu.pe` | Alumno | Solicitante | 20217440 | 78999996 |
+| 44 | Micaela Belen Uribe Zuñiga | `muribez@unsa.edu.pe` | Alumno | Solicitante | 20242989 | 77570912 |
+| 45 | Ronald Reynaldo Valdez Agüero | `rvaldeza@unsa.edu.pe` | Alumno | Solicitante | 20239377 | 73950287 |
+| 46 | Diego Mauricio Villanueva Flores | `dvillanuevaf@unsa.edu.pe` | Alumno | Solicitante | 20239106 | 77006348 |
+| 47 | Marving Alonzo Zamata Huaracha | `mzamatah@unsa.edu.pe` | Alumno | Solicitante | 20239105 | 75721371 |
+| 48 | Eduardo Josue Zela Quispe | `ezelaq@unsa.edu.pe` | Alumno | Solicitante | 20232806 | 71808919 |
+| 49 | Yessenia Deysi Yari Ramos | `yyarir@unsa.edu.pe` | Docente | Solicitante, Supervisor | — | 29857447 |
+| 50 | Ana Maria Cuadros Valdivia | `acuadrosv@unsa.edu.pe` | Docente | Solicitante | — | 29390231 |
+| 51 | Edgar Sarmiento Calisaya | `esarmientoc@unsa.edu.pe` | Docente | Solicitante | — | 29269230 |
+| 52 | Rolando Jesus Cardenas Talavera | `rcardenast@unsa.edu.pe` | Docente | Solicitante | — | 29531638 |
+| 53 | Alfredo Paz Valderrama | `apazv@unsa.edu.pe` | Docente | Solicitante | — | 29201135 |
+| 54 | Raquel Consuelo Argüelles Flórez | `rarguellesf@unsa.edu.pe` | Administrativo | Solicitante, Administrador | — | 29198429 |
+| 55 | Juan Carlos Gutierrez Caceres | `jgutierrezc@unsa.edu.pe` | Administrativo | Solicitante, Encargado | — | 29736753 |
+
+</details>
+
 <details>
 <summary><b>Otros comandos útiles</b></summary>
 <br>
@@ -276,6 +361,7 @@ Abre **http://127.0.0.1:8000** e ingresa con una de estas cuentas (contraseña *
 |:--|:--|
 | `python manage.py seed_catalogo --limpiar` | Vuelve a cargar solo el catálogo de ejemplo |
 | `python manage.py seed_cuentas` | Restablece las cuentas de demostración |
+| `python manage.py seed_unsa` | Carga o restablece los usuarios del curso (mismos datos para todos) |
 | `python manage.py expirar_reservas` | Expira reservas no recogidas y avanza la lista de espera |
 | `python manage.py revisar_vencimientos` | Avisa préstamos por vencer y marca los vencidos |
 | `python manage.py actualizar_etiquetas` | Recalcula las etiquetas de los solicitantes |
