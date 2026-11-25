@@ -239,6 +239,7 @@ class ReservaServicioAplicacion(IReservaServicio):
 
     def confirmadas_de_hoy(self):
         """Reservas que el encargado puede entregar hoy."""
+        self.expirar_reservas()
         return [ReservaDTO.desde(r) for r in self.repositorio.confirmadas_del_dia(self.reloj().date())]
 
     @transaction.atomic
