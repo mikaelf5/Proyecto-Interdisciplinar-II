@@ -27,6 +27,16 @@ from apps.circulacion.aplicacion.dtos import (
 )
 
 from apps.circulacion.fabrica import prestamo_servicio
+
+
+def _revisar_vencimientos():
+    """Marca VENCIDO a los préstamos cuya hora ya pasó (y avisa al solicitante).
+
+    Se hace al abrir Devoluciones y Préstamos vencidos: así el estado es el real aunque
+    nadie haya corrido el comando `revisar_vencimientos`.
+    """
+    from apps.sanciones.fabrica import revisor_vencimientos
+    revisor_vencimientos().revisar()
 class EntregasHoyView(RolRequeridoMixin, ListView):
     roles_permitidos = [RolSistema.ENCARGADO]
     template_name = "circulacion/entregas_hoy.html"
@@ -129,6 +139,9 @@ class RegistrarEntregaView(RolRequeridoMixin, View):
                 descripcion_condicion=datos["descripcion_condicion"],
             )
 
+            # Se expira ANTES: dentro de registrar_entrega (atomic) se desharía.
+            prestamo_servicio().reservas.expirar_reservas()
+
             try:
                 prestamo_servicio().registrar_entrega(dto)
 
@@ -170,6 +183,7 @@ class DevolucionesView(RolRequeridoMixin, ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
+        _revisar_vencimientos()
         servicio = prestamo_servicio()
         resultado = []
 
@@ -189,6 +203,8 @@ class DevolucionesView(RolRequeridoMixin, ListView):
                 "prestamo": prestamo,
                 "articulo": nombre_articulo,
                 "solicitante": solicitante,
+                "vencido": prestamo.estado == EstadoPrestamo.VENCIDO,
+                "estado": EstadoPrestamo(prestamo.estado).label,
             })
 
         return resultado
@@ -416,6 +432,7 @@ class PrestamosVencidosView(RolRequeridoMixin, ListView):
     context_object_name = "prestamos"
 
     def get_queryset(self):
+        _revisar_vencimientos()
         servicio = prestamo_servicio()
         resultado = []
 
@@ -464,4 +481,4 @@ class PrestamosVencidosView(RolRequeridoMixin, ListView):
                 "tiempo_vencido": tiempo_vencido,
             })
 
-        return resultado
+        return resultado

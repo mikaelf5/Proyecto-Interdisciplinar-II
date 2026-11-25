@@ -132,6 +132,7 @@ class ReservaServicioAplicacion(IReservaServicio):
         """Botón "Reservar". Si cumple las reglas se aprueba sola (o va al supervisor)."""
         self.expirar_reservas()                    # libera las franjas de quien no vino
         item = self._item_solicitado(dto)
+        self._verificar_que_no_siga_afuera(item)
         politica = self._validar_reglas(dto, item.categoria_id)
         self.repositorio.bloquear_item(item.id)
         self._verificar_franja_libre(item, dto)
@@ -148,6 +149,7 @@ class ReservaServicioAplicacion(IReservaServicio):
             raise ValidationError("Indica el ítem para anotarte en su lista de espera.")
         self.expirar_reservas()
         item = self._item_reservable(dto.item_id)
+        self._verificar_que_no_siga_afuera(item)
         politica = self._validar_reglas(dto, item.categoria_id)
         self.repositorio.bloquear_item(item.id)
         self._verificar_que_puede_esperar(item, dto)
@@ -327,8 +329,48 @@ class ReservaServicioAplicacion(IReservaServicio):
             raise ValidationError(f"{item.codigo} está fuera de servicio ({item.estado_display.lower()}).")
         return item
 
+    def _prestamo_vencido_sin_devolver(self, item_id):
+        """Reserva ATENDIDA cuyo horario ya terminó y cuyo ítem sigue sin devolverse.
+
+        Un préstamo que aún está dentro de su horario no cuenta aquí: su franja ya está ocupada
+        y se puede reservar para después. Pero si ya venció y el ítem no volvió, no se sabe
+        cuándo lo hará: no se puede reservar para ninguna fecha hasta que se devuelva.
+        """
+        ahora = self.reloj()
+        return next((r for r in self.repositorio.atendidas_de(item_id) if self._fin(r) <= ahora), None)
+
+    def _prestado_sin_prestamo_en_curso(self, item):
+        """El catálogo dice PRESTADO pero no hay un préstamo de hoy en curso que lo explique.
+
+        Pasa si el préstamo se registró sin su reserva (por ejemplo, datos cargados a mano):
+        tampoco se sabe cuándo vuelve, así que se trata igual que un préstamo vencido.
+        """
+        if item.estado != EstadoItem.PRESTADO:
+            return False
+        ahora = self.reloj()
+        return not any(self._fin(r) > ahora for r in self.repositorio.atendidas_de(item.id))
+
+    def _sigue_afuera(self, item):
+        return bool(self._prestamo_vencido_sin_devolver(item.id)) or self._prestado_sin_prestamo_en_curso(item)
+
+    def _verificar_que_no_siga_afuera(self, item):
+        vencida = self._prestamo_vencido_sin_devolver(item.id)
+        if vencida:
+            raise ValidationError(
+                f"{item.codigo} sigue prestado: su préstamo terminó el {vencida.fecha:%d/%m/%Y} a las "
+                f"{vencida.hora_fin:%H:%M} y todavía no se ha devuelto. No se puede reservar hasta "
+                f"que lo devuelvan."
+            )
+        if self._prestado_sin_prestamo_en_curso(item):
+            raise ValidationError(
+                f"{item.codigo} está prestado y todavía no se ha devuelto. No se puede reservar "
+                f"hasta que lo devuelvan."
+            )
+
     def _item_libre_de_categoria(self, dto):
         for item in self._items_en_servicio(dto.categoria_id):
+            if self._sigue_afuera(item):
+                continue  # sigue afuera: se prueba con el siguiente ítem de la categoría
             if self.franja_libre(item.id, dto.fecha, dto.hora_inicio, dto.hora_fin):
                 return item
         raise ValidationError("No hay ítems libres de esa categoría en ese horario. Prueba otro horario.")
@@ -371,6 +413,7 @@ class ReservaServicioAplicacion(IReservaServicio):
             alternativos = [
                 otro for otro in self._items_en_servicio(item.categoria_id)
                 if otro.id != item.id
+                   and not self._sigue_afuera(otro)
                    and self.franja_libre(
                     otro.id,
                     dto.fecha,
@@ -480,6 +523,11 @@ class ReservaServicioAplicacion(IReservaServicio):
         inicio = datetime.combine(reserva.fecha, reserva.hora_inicio)
         return timezone.make_aware(inicio, timezone.get_current_timezone())
 
+    @staticmethod
+    def _fin(reserva):
+        fin = datetime.combine(reserva.fecha, reserva.hora_fin)
+        return timezone.make_aware(fin, timezone.get_current_timezone())
+
     # Avisos
 
     def _describir(self, reserva):
@@ -494,4 +542,4 @@ class ReservaServicioAplicacion(IReservaServicio):
             return "el ítem"
 
     def _avisar(self, reserva, mensaje):
-        self.notificaciones.enviar(reserva.solicitante_id, TipoNotificacion.DISPONIBILIDAD_RESERVA, mensaje)
+        self.notificaciones.enviar(reserva.solicitante_id, TipoNotificacion.DISPONIBILIDAD_RESERVA, mensaje)

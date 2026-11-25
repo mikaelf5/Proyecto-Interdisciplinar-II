@@ -50,6 +50,9 @@
             {% for desde, hasta in agenda.libres %}
                 <span class="badge text-bg-success">{{ desde|time:"H:i" }}–{{ hasta|time:"H:i" }}</span>
             {% empty %}<span class="small text-muted">No quedan horarios libres.</span>{% endfor %}
+            {% if item.estado == "PRESTADO" %}
+                <p class="small text-warning-emphasis mt-3 mb-0">Este ítem está prestado en este momento: reserva un horario posterior a su devolución.</p>
+            {% endif %}
             <a href="{% url 'reservas:reservar' item.id %}?fecha={{ fecha|date:'Y-m-d' }}" class="btn btn-primary btn-sm mt-3">Reservar</a>
         </div>
         <div class="card card-body">

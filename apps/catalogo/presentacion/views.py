@@ -194,6 +194,7 @@ class DetalleView(LoginRequiredMixin, View):
             "puede_editar": _tiene_rol(request.user, RolSistema.ADMINISTRADOR) and item.estado != EstadoItem.BAJA,
             "puede_reservar": _tiene_rol(request.user, RolSistema.SOLICITANTE),
             "fuera_de_servicio": item.estado in (EstadoItem.BAJA, EstadoItem.MANTENIMIENTO),
+            "prestado": item.estado == EstadoItem.PRESTADO,
         })
 
 

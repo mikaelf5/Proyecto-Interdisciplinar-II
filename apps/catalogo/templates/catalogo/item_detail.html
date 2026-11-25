@@ -106,6 +106,9 @@
             {% if fuera_de_servicio %}
                 <p class="small text-danger mt-3 mb-0">Este ítem está fuera de servicio y no se puede reservar.</p>
             {% elif puede_reservar %}
+                {% if prestado %}
+                    <p class="small text-warning-emphasis mt-3 mb-0">Este ítem está prestado en este momento. Puedes reservarlo para un horario posterior a su devolución.</p>
+                {% endif %}
                 <a href="{% url 'reservas:reservar' item.id %}" class="btn btn-primary w-100 mt-3">Reservar este ítem</a>
                 <p class="small text-muted mt-2 mb-0">Puedes reservar para hoy o con anticipación, por un rango de horas del mismo día.</p>
             {% endif %}

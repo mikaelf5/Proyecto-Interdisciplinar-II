@@ -362,3 +362,38 @@ class VistasTests(TestCase):
     def test_supervisor_no_puede_reservar(self):
         self.client.force_login(self.sup)
         self.assertEqual(self.client.get(f"/reservas/item/{self.libro.id}/reservar/").status_code, 403)
+
+
+class ItemQueNoVolvioTests(TestCase):
+    """Un ítem prestado que no se devolvió no se puede reservar ni esperar."""
+
+    setUp = ReservaServicioTests.setUp
+    dto = ReservaServicioTests.dto
+
+    def _prestar(self, desde, hasta):
+        r = self.s.crear(self.dto(self.ana, desde, hasta))
+        self.s.marcar_atendida(r.id)
+        CatalogoServicioAplicacion().marcar_prestado(self.libro.id)
+        return r
+
+    def test_prestamo_en_curso_deja_reservar_para_despues(self):
+        self._prestar("09:30", "11:00")
+        self.ahora = datetime(2026, 11, 2, 10, 0, tzinfo=LIMA)
+        r = self.s.crear(self.dto(self.beto, "11:30", "12:00"))
+        self.assertEqual(r.estado, EstadoReserva.CONFIRMADA)
+
+    def test_prestamo_vencido_no_deja_reservar_ni_esperar(self):
+        self._prestar("09:30", "11:00")
+        self.ahora = datetime(2026, 11, 2, 11, 30, tzinfo=LIMA)     # ya venció y no volvió
+        with self.assertRaisesMessage(ValidationError, "sigue prestado"):
+            self.s.crear(self.dto(self.beto, "12:30", "13:00"))
+        with self.assertRaisesMessage(ValidationError, "sigue prestado"):
+            self.s.anotarse_en_espera(self.dto(self.beto, "12:30", "13:00"))
+
+    def test_prestado_sin_prestamo_en_curso_tampoco(self):
+        CatalogoServicioAplicacion().marcar_prestado(self.libro.id)  # p. ej. datos cargados a mano
+        with self.assertRaisesMessage(ValidationError, "está prestado y todavía no se ha devuelto"):
+            self.s.crear(self.dto(self.beto, "10:00", "11:00"))
+        # Por categoría se salta ese ítem y se asigna otro libre.
+        r = self.s.crear(self.dto(self.beto, "10:00", "11:00", categoria=self.libros.id))
+        self.assertEqual(r.item_id, self.libro2.id)

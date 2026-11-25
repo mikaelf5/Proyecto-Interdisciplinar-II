@@ -39,5 +39,9 @@ class IReservaRepositorio(ABC):
     def confirmadas_del_dia(self, fecha): ...
 
     @abstractmethod
+    def atendidas_de(self, item_id):
+        """Reservas ATENDIDAS del ítem: se entregó y todavía no se devolvió."""
+
+    @abstractmethod
     def pendientes_hasta(self, fecha):
         """ACTIVAS / EN_ESPERA_SUPERVISOR / CONFIRMADAS con fecha <= `fecha` (para expirar)."""

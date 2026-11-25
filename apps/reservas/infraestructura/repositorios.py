@@ -61,6 +61,10 @@ class ReservaRepositorioImpl(IReservaRepositorio):
         return list(Reserva.objects.filter(estado=EstadoReserva.CONFIRMADA, fecha=fecha)
                     .order_by("hora_inicio"))
 
+    def atendidas_de(self, item_id):
+        return list(Reserva.objects.filter(item_id=item_id, estado=EstadoReserva.ATENDIDA)
+                    .order_by("fecha", "hora_fin"))
+
     def pendientes_hasta(self, fecha):
         return list(Reserva.objects.filter(
             fecha__lte=fecha,
