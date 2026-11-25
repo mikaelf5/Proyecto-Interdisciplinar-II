@@ -19,8 +19,11 @@
                 <tr>
                     <td>{{ registro.articulo }}</td>
                     <td>{{ registro.solicitante }}</td>
-                    <td>{{ registro.prestamo.estado }}</td>
-                    <td>{{ registro.prestamo.fecha_vencimiento }}</td>
+                    <td>
+                        {% if registro.vencido %}<span class="badge bg-danger">{{ registro.estado }}</span>
+                        {% else %}<span class="badge bg-success">{{ registro.estado }}</span>{% endif %}
+                    </td>
+                    <td>{{ registro.prestamo.fecha_vencimiento|date:"d/m/Y H:i" }}</td>
                     <td>
                         <a href="{% url 'circulacion:registrar_devolucion' registro.prestamo.id %}">
                             Registrar devolución
@@ -33,4 +36,4 @@
 {% else %}
     <p>No hay préstamos pendientes de devolución.</p>
 {% endif %}
-{% endblock %}
+{% endblock %}

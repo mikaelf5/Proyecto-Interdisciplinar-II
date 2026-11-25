@@ -822,3 +822,34 @@ class HistorialPrestamosTest(TestCase):
         )
 
         self.assertEqual(resultados.count(), 0)
+
+class DevolucionesMuestraVencidosTest(TestCase):
+    """Al abrir Devoluciones, un préstamo cuya hora ya pasó aparece como VENCIDO."""
+
+    def test_prestamo_pasado_de_hora_sale_vencido(self):
+        from django.contrib.auth import get_user_model
+        from django.test import Client
+        from apps.catalogo.aplicacion.servicios import CatalogoServicioAplicacion
+        from apps.catalogo.aplicacion.dtos import NuevoItemDTO
+        from apps.common.choices import RolSistema
+
+        Cuenta = get_user_model()
+        enc = Cuenta.objects.create_user("enc@t.pe", "Encargado", "1", "x", roles=[RolSistema.ENCARGADO])
+        ana = Cuenta.objects.create_user("ana@t.pe", "Ana", "2", "x", roles=[RolSistema.SOLICITANTE])
+        catalogo = CatalogoServicioAplicacion()
+        cat = catalogo.crear_categoria("Libros")
+        item = catalogo.registrar_item(NuevoItemDTO(codigo="LIB-V", categoria_id=cat.id))
+        catalogo.marcar_prestado(item.id)
+        ahora = timezone.now()
+        p = Prestamo.objects.create(
+            reserva_id=uuid.uuid4(), item_id=item.id, solicitante_id=ana.id, encargado_entrega_id=enc.id,
+            fecha_entrega=ahora - timedelta(hours=3), fecha_vencimiento=ahora - timedelta(hours=1),
+            estado=EstadoPrestamo.ACTIVO, garantia_tipo=TipoGarantia.DNI, terminos_aceptados=True,
+        )
+        c = Client(HTTP_HOST="localhost")
+        c.force_login(enc)
+        r = c.get("/circulacion/devoluciones/")
+        self.assertEqual(r.status_code, 200)
+        p.refresh_from_db()
+        self.assertEqual(p.estado, EstadoPrestamo.VENCIDO)
+        self.assertContains(r, "bg-danger")
