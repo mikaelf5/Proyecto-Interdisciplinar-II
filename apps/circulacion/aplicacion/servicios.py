@@ -134,8 +134,15 @@ class PrestamoServicioAplicacion(IPrestamoServicio):
             raise ValidationError("Describe la garantía seleccionada.")
 
         # Buscar la reserva.
+        self.reservas.expirar_reservas()
+
+        # Buscar la reserva.
         reserva = self.reservas.obtener(dto.reserva_id)
 
+        if reserva.estado == EstadoReserva.EXPIRADA:
+            raise ValidationError(
+                "La reserva expiró: el solicitante no la recogió dentro del tiempo de tolerancia."
+            )
         if reserva.estado != EstadoReserva.CONFIRMADA:
             raise ValidationError(
                 "Solo se pueden entregar ítems con reservas confirmadas."

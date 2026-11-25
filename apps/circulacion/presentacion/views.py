@@ -84,11 +84,16 @@ class RegistrarEntregaView(RolRequeridoMixin, View):
 
     def get(self, request, reserva_id):
         servicio = prestamo_servicio()
+        servicio.reservas.expirar_reservas()
 
         try:
             reserva = servicio.reservas.obtener(reserva_id)
         except ValidationError:
             messages.error(request, "No se encontró la reserva.")
+            return redirect("circulacion:entregas_hoy")
+
+        if reserva.estado == EstadoReserva.EXPIRADA:
+            messages.error(request, "La reserva expiró: no se recogió dentro del tiempo de tolerancia.")
             return redirect("circulacion:entregas_hoy")
 
         if reserva.estado != EstadoReserva.CONFIRMADA:
